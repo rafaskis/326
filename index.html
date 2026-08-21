@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overtime Tracker v3.2</title>
+    <title>Overtime Tracker v3.4</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         :root {
@@ -304,6 +304,21 @@
         }
 
         // ==========================================
+        // DATE FORMATTER (DD/MM/YYYY HH:mm - 24H STRICT)
+        // ==========================================
+        function formatDisplayDate(isoString) {
+            if (!isoString) return '';
+            const d = new Date(isoString);
+            const day = d.getDate().toString().padStart(2, '0');
+            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+            const year = d.getFullYear();
+            const hours = d.getHours().toString().padStart(2, '0');
+            const minutes = d.getMinutes().toString().padStart(2, '0');
+            
+            return `${day}/${month}/${year} ${hours}:${minutes}`;
+        }
+
+        // ==========================================
         // OVERTIME COMPUTATION ENGINE
         // ==========================================
         function calculateOvertime(startDt, endDt, multiplier) {
@@ -360,15 +375,20 @@
         function setDateTimeFields(prefix, isoString) {
             if (!isoString) {
                 const now = new Date();
-                const todayStr = now.toISOString().split('T')[0];
-                document.getElementById(`${prefix}Date`).value = todayStr;
+                const year = now.getFullYear();
+                const month = (now.getMonth() + 1).toString().padStart(2, '0');
+                const day = now.getDate().toString().padStart(2, '0');
+                
+                document.getElementById(`${prefix}Date`).value = `${year}-${month}-${day}`;
                 document.getElementById(`${prefix}Hour`).value = "08";
                 document.getElementById(`${prefix}Min`).value = "00";
                 handleHourChange(prefix);
                 return;
             }
             const d = new Date(isoString);
-            const dateStr = d.toISOString().split('T')[0];
+            const year = d.getFullYear();
+            const month = (d.getMonth() + 1).toString().padStart(2, '0');
+            const day = d.getDate().toString().padStart(2, '0');
             const hourStr = d.getHours().toString().padStart(2, '0');
             const minNum = d.getMinutes();
 
@@ -377,7 +397,7 @@
             else if (minNum >= 23) minStr = "30";
             else if (minNum >= 8) minStr = "15";
 
-            document.getElementById(`${prefix}Date`).value = dateStr;
+            document.getElementById(`${prefix}Date`).value = `${year}-${month}-${day}`;
             document.getElementById(`${prefix}Hour`).value = hourStr;
             document.getElementById(`${prefix}Min`).value = minStr;
             handleHourChange(prefix);
@@ -391,12 +411,15 @@
             if (!dateVal) return null;
 
             if (hourVal === "24") {
-                const baseDate = new Date(`${dateVal}T00:00:00`);
+                const parts = dateVal.split('-');
+                const baseDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0);
                 baseDate.setDate(baseDate.getDate() + 1);
                 return baseDate.toISOString();
             }
 
-            return `${dateVal}T${hourVal}:${minVal}:00`;
+            const parts = dateVal.split('-');
+            const constructed = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(hourVal), parseInt(minVal), 0);
+            return constructed.toISOString();
         }
 
         // ==========================================
@@ -408,7 +431,7 @@
             document.getElementById('recID').value = '';
             
             setDateTimeFields('recStart', null);
-            handleStartDateChange(); // Sets end date to match start date & enables it
+            handleStartDateChange();
             setDateTimeFields('recEnd', null);
 
             document.getElementById('recMultiplier').value = meta.defaultMultiplier;
@@ -586,8 +609,8 @@
                         list.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:8px;">No records registered.</div>`;
                     } else {
                         monthRecords.forEach(r => {
-                            const startFormatted = new Date(r.startTime).toLocaleString();
-                            const endFormatted = new Date(r.endTime).toLocaleString();
+                            const startFormatted = formatDisplayDate(r.startTime);
+                            const endFormatted = formatDisplayDate(r.endTime);
 
                             const item = document.createElement('div');
                             item.className = `record-item ${r.isPaid ? 'is-paid' : ''}`;
