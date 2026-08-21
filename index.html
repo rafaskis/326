@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overtime Tracker v3.1</title>
+    <title>Overtime Tracker v3.2</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         :root {
@@ -65,6 +65,7 @@
         .year-display { font-size: 22px; font-weight: 800; }
 
         select, input, button { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; background: var(--card-bg); color: var(--text-main); }
+        select:disabled, input:disabled { opacity: 0.5; cursor: not-allowed; }
         
         .btn-trigger-form { background: var(--primary); color: white; font-weight: bold; border: none; margin-bottom: 16px; padding: 12px; border-radius: 8px; cursor: pointer; font-size: 15px; }
         .form-card { background: var(--card-bg); padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 20px; display: none; }
@@ -141,19 +142,19 @@
     <div class="form-card" id="recordFormCard">
         <div class="form-grid">
             <div class="form-group full-width">
-                <label>Name *</label>
-                <input type="text" id="recName" placeholder="Employee Name">
+                <label>Α/Α (Αύξων Αριθμός Διαταγής)</label>
+                <input type="text" id="recID" placeholder="e.g. 12/2026">
             </div>
             <div class="form-group full-width">
-                <label>ID (Optional)</label>
-                <input type="text" id="recID" placeholder="Reference or Employee ID">
+                <label>Notes</label>
+                <input type="text" id="recName" placeholder="Notes or description">
             </div>
 
             <!-- Start Time Selector -->
             <div class="form-group full-width">
                 <label>Time Started *</label>
                 <div class="datetime-picker-row">
-                    <input type="date" id="recStartDate">
+                    <input type="date" id="recStartDate" onchange="handleStartDateChange()">
                     <select id="recStartHour" onchange="handleHourChange('recStart')"></select>
                     <select id="recStartMin">
                         <option value="00">00</option>
@@ -223,8 +224,8 @@
 
             for (let h = 0; h <= 24; h++) {
                 const hourStr = h.toString().padStart(2, '0');
-                startHourSelect.options.add(new Option(`${hourStr}:00`, hourStr));
-                endHourSelect.options.add(new Option(`${hourStr}:00`, hourStr));
+                startHourSelect.options.add(new Option(hourStr, hourStr));
+                endHourSelect.options.add(new Option(hourStr, hourStr));
             }
         }
 
@@ -237,6 +238,21 @@
                 minSelect.disabled = true;
             } else {
                 minSelect.disabled = false;
+            }
+        }
+
+        function handleStartDateChange() {
+            const startDateVal = document.getElementById('recStartDate').value;
+            const endDateInput = document.getElementById('recEndDate');
+            
+            if (startDateVal) {
+                endDateInput.disabled = false;
+                if (!endDateInput.value || endDateInput.value < startDateVal) {
+                    endDateInput.value = startDateVal;
+                }
+            } else {
+                endDateInput.disabled = true;
+                endDateInput.value = '';
             }
         }
 
@@ -344,7 +360,8 @@
         function setDateTimeFields(prefix, isoString) {
             if (!isoString) {
                 const now = new Date();
-                document.getElementById(`${prefix}Date`).value = now.toISOString().split('T')[0];
+                const todayStr = now.toISOString().split('T')[0];
+                document.getElementById(`${prefix}Date`).value = todayStr;
                 document.getElementById(`${prefix}Hour`).value = "08";
                 document.getElementById(`${prefix}Min`).value = "00";
                 handleHourChange(prefix);
@@ -389,8 +406,11 @@
             editingRecordId = null;
             document.getElementById('recName').value = '';
             document.getElementById('recID').value = '';
+            
             setDateTimeFields('recStart', null);
+            handleStartDateChange(); // Sets end date to match start date & enables it
             setDateTimeFields('recEnd', null);
+
             document.getElementById('recMultiplier').value = meta.defaultMultiplier;
             document.getElementById('formSubmitBtn').innerText = "Save Overtime Record";
             document.getElementById('recordFormCard').style.display = 'block';
@@ -402,10 +422,13 @@
             if (!rec) return;
 
             editingRecordId = id;
-            document.getElementById('recName').value = rec.name;
+            document.getElementById('recName').value = rec.name || '';
             document.getElementById('recID').value = rec.idCode || '';
+            
             setDateTimeFields('recStart', rec.startTime);
+            handleStartDateChange();
             setDateTimeFields('recEnd', rec.endTime);
+            
             document.getElementById('recMultiplier').value = rec.multiplier;
             document.getElementById('formSubmitBtn').innerText = "Update Record";
             document.getElementById('recordFormCard').style.display = 'block';
@@ -422,17 +445,28 @@
         async function processFormSubmit() {
             const name = document.getElementById('recName').value.trim();
             const idCode = document.getElementById('recID').value.trim();
+            const startDateVal = document.getElementById('recStartDate').value;
+            const endDateVal = document.getElementById('recEndDate').value;
+
+            if (!startDateVal) {
+                alert("Please select Start Date.");
+                return;
+            }
+
+            if (!endDateVal) {
+                alert("Please select End Date.");
+                return;
+            }
+
             const startVal = buildISOFromFields('recStart');
             const endVal = buildISOFromFields('recEnd');
             const multiplier = document.getElementById('recMultiplier').value;
 
-            if (!name || !startVal || !endVal) {
-                alert("Please fill in all required fields.");
-                return;
-            }
+            const startDateObj = new Date(startVal);
+            const endDateObj = new Date(endVal);
 
-            if (new Date(endVal) <= new Date(startVal)) {
-                alert("Time Ended must be after Time Started.");
+            if (endDateObj <= startDateObj) {
+                alert("Time Ended must be later than Time Started.");
                 return;
             }
 
@@ -559,7 +593,7 @@
                             item.className = `record-item ${r.isPaid ? 'is-paid' : ''}`;
                             item.innerHTML = `
                                 <div class="record-top">
-                                    <div class="record-title">${r.name} ${r.idCode ? `<span class="record-id">(${r.idCode})</span>` : ''}</div>
+                                    <div class="record-title">${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span class="record-id">(${r.name})</span>` : ''}</div>
                                     <span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.multiplier}</span>
                                 </div>
                                 <div class="record-details">
