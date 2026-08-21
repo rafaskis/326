@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overtime Tracker</title>
+    <title>Overtime Tracker v3.1</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         :root {
@@ -73,6 +73,10 @@
         .form-group { display: flex; flex-direction: column; gap: 4px; }
         .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 
+        /* Custom Date-Time Picker Layout */
+        .datetime-picker-row { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 6px; align-items: center; }
+        .datetime-picker-row select, .datetime-picker-row input[type="date"] { padding: 8px 6px; font-size: 13px; }
+
         .btn-primary { background: var(--primary); color: white; font-weight: bold; border: none; cursor: pointer; margin-top: 8px; }
         .btn-cancel-form { background: transparent; color: var(--text-muted); border: none; margin-top: 6px; font-size: 13px; text-decoration: underline; cursor: pointer; width: 100%; }
 
@@ -103,15 +107,6 @@
         .btn-icon { padding: 6px 10px; font-size: 13px; border-radius: 6px; border: 1px solid var(--border); background: var(--btn-action-bg); cursor: pointer; }
         .btn-edit { color: var(--edit-color); }
         .btn-delete { color: var(--danger); }
-
-        .choice-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 2000; padding: 24px; align-items: center; justify-content: center; }
-        .choice-card { background: var(--card-bg); border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; border: 1px solid var(--border); }
-        .choice-message { font-size: 15px; font-weight: 500; text-align: center; margin-bottom: 20px; line-height: 1.4; }
-        .choice-buttons-row { display: flex; gap: 10px; justify-content: center; }
-        .btn-choice { flex: 1; padding: 10px; font-weight: bold; border-radius: 8px; border: none; cursor: pointer; text-align: center; }
-        .btn-choice-primary { background: var(--primary); color: white; }
-        .btn-choice-danger { background: var(--danger); color: white; }
-        .btn-choice-secondary { background: var(--group-header-bg); color: var(--text-main); }
     </style>
 </head>
 <body>
@@ -153,14 +148,37 @@
                 <label>ID (Optional)</label>
                 <input type="text" id="recID" placeholder="Reference or Employee ID">
             </div>
-            <div class="form-group">
+
+            <!-- Start Time Selector -->
+            <div class="form-group full-width">
                 <label>Time Started *</label>
-                <input type="datetime-local" id="recStart">
+                <div class="datetime-picker-row">
+                    <input type="date" id="recStartDate">
+                    <select id="recStartHour" onchange="handleHourChange('recStart')"></select>
+                    <select id="recStartMin">
+                        <option value="00">00</option>
+                        <option value="15">15</option>
+                        <option value="30">30</option>
+                        <option value="45">45</option>
+                    </select>
+                </div>
             </div>
-            <div class="form-group">
+
+            <!-- End Time Selector -->
+            <div class="form-group full-width">
                 <label>Time Ended *</label>
-                <input type="datetime-local" id="recEnd">
+                <div class="datetime-picker-row">
+                    <input type="date" id="recEndDate">
+                    <select id="recEndHour" onchange="handleHourChange('recEnd')"></select>
+                    <select id="recEndMin">
+                        <option value="00">00</option>
+                        <option value="15">15</option>
+                        <option value="30">30</option>
+                        <option value="45">45</option>
+                    </select>
+                </div>
             </div>
+
             <div class="form-group full-width">
                 <label>Multiplier *</label>
                 <select id="recMultiplier">
@@ -174,13 +192,6 @@
     </div>
 
     <div id="monthsContainer"></div>
-
-    <div class="choice-overlay" id="customChoiceOverlay">
-        <div class="choice-card">
-            <div class="choice-message" id="choiceOverlayMessage"></div>
-            <div class="choice-buttons-row" id="choiceButtonsContainer"></div>
-        </div>
-    </div>
 
     <script>
         const GOOGLE_CLIENT_ID = '610766342355-plf8p3rbn5d74dt7g643s6ndq12nestd.apps.googleusercontent.com';
@@ -204,6 +215,31 @@
         let activeAccessToken = null;
         let gdriveFileId = null;
 
+        function populateHourOptions() {
+            const startHourSelect = document.getElementById('recStartHour');
+            const endHourSelect = document.getElementById('recEndHour');
+            startHourSelect.innerHTML = '';
+            endHourSelect.innerHTML = '';
+
+            for (let h = 0; h <= 24; h++) {
+                const hourStr = h.toString().padStart(2, '0');
+                startHourSelect.options.add(new Option(`${hourStr}:00`, hourStr));
+                endHourSelect.options.add(new Option(`${hourStr}:00`, hourStr));
+            }
+        }
+
+        function handleHourChange(prefix) {
+            const hourVal = document.getElementById(`${prefix}Hour`).value;
+            const minSelect = document.getElementById(`${prefix}Min`);
+
+            if (hourVal === "24") {
+                minSelect.value = "00";
+                minSelect.disabled = true;
+            } else {
+                minSelect.disabled = false;
+            }
+        }
+
         function initializeSavedDisplayTheme() {
             const savedTheme = localStorage.getItem('ot_app_theme') || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
@@ -217,6 +253,7 @@
         }
 
         window.onload = function() {
+            populateHourOptions();
             initializeSavedDisplayTheme();
             loadLocalStorageCache();
             document.getElementById('yearDisplay').innerText = activeYear;
@@ -251,7 +288,7 @@
         }
 
         // ==========================================
-        // UPDATED OVERTIME COMPUTATION ENGINE
+        // OVERTIME COMPUTATION ENGINE
         // ==========================================
         function calculateOvertime(startDt, endDt, multiplier) {
             let start = new Date(startDt);
@@ -276,22 +313,22 @@
 
                 if (multiplier === 'ΒΑΡΔΙΑ') {
                     if (day === 0) {
-                        hoursToPay += stepHours * 1.8; // Sunday updated to 1.8x
+                        hoursToPay += stepHours * 1.8;
                     } else {
-                        hoursToPay += stepHours * 1.5; // Other days remain 1.5x
+                        hoursToPay += stepHours * 1.5;
                     }
                 } else if (multiplier === 'ΓΡΑΦΕΙΑΚΟ') {
                     if (day === 0) { // Sunday 00:00 - 24:00 @ 2.0x
                         hoursToPay += stepHours * 2.0;
                     } else if (day === 6) { // Saturday
                         if (hour < 13) {
-                            hoursToPay += stepHours * 1.5; // Saturday 00:00 - 13:00 @ 1.5x
+                            hoursToPay += stepHours * 1.5; // 00:00 - 13:00 @ 1.5x
                         } else {
-                            hoursToPay += stepHours * 2.0; // Saturday 13:00 - 24:00 @ 2.0x
+                            hoursToPay += stepHours * 2.0; // 13:00 - 24:00 @ 2.0x
                         }
                     } else { // Weekdays (Monday to Friday)
                         if (hour >= 17) {
-                            hoursToPay += stepHours * 1.5; // Weekdays 17:00 - 24:00 @ 1.5x
+                            hoursToPay += stepHours * 1.5; // 17:00 - 24:00 @ 1.5x
                         }
                     }
                 }
@@ -304,6 +341,47 @@
             };
         }
 
+        function setDateTimeFields(prefix, isoString) {
+            if (!isoString) {
+                const now = new Date();
+                document.getElementById(`${prefix}Date`).value = now.toISOString().split('T')[0];
+                document.getElementById(`${prefix}Hour`).value = "08";
+                document.getElementById(`${prefix}Min`).value = "00";
+                handleHourChange(prefix);
+                return;
+            }
+            const d = new Date(isoString);
+            const dateStr = d.toISOString().split('T')[0];
+            const hourStr = d.getHours().toString().padStart(2, '0');
+            const minNum = d.getMinutes();
+
+            let minStr = "00";
+            if (minNum >= 38) minStr = "45";
+            else if (minNum >= 23) minStr = "30";
+            else if (minNum >= 8) minStr = "15";
+
+            document.getElementById(`${prefix}Date`).value = dateStr;
+            document.getElementById(`${prefix}Hour`).value = hourStr;
+            document.getElementById(`${prefix}Min`).value = minStr;
+            handleHourChange(prefix);
+        }
+
+        function buildISOFromFields(prefix) {
+            const dateVal = document.getElementById(`${prefix}Date`).value;
+            const hourVal = document.getElementById(`${prefix}Hour`).value;
+            const minVal = document.getElementById(`${prefix}Min`).value;
+
+            if (!dateVal) return null;
+
+            if (hourVal === "24") {
+                const baseDate = new Date(`${dateVal}T00:00:00`);
+                baseDate.setDate(baseDate.getDate() + 1);
+                return baseDate.toISOString();
+            }
+
+            return `${dateVal}T${hourVal}:${minVal}:00`;
+        }
+
         // ==========================================
         // FORM & RECORD CONTROLLERS
         // ==========================================
@@ -311,8 +389,8 @@
             editingRecordId = null;
             document.getElementById('recName').value = '';
             document.getElementById('recID').value = '';
-            document.getElementById('recStart').value = '';
-            document.getElementById('recEnd').value = '';
+            setDateTimeFields('recStart', null);
+            setDateTimeFields('recEnd', null);
             document.getElementById('recMultiplier').value = meta.defaultMultiplier;
             document.getElementById('formSubmitBtn').innerText = "Save Overtime Record";
             document.getElementById('recordFormCard').style.display = 'block';
@@ -326,8 +404,8 @@
             editingRecordId = id;
             document.getElementById('recName').value = rec.name;
             document.getElementById('recID').value = rec.idCode || '';
-            document.getElementById('recStart').value = rec.startTime;
-            document.getElementById('recEnd').value = rec.endTime;
+            setDateTimeFields('recStart', rec.startTime);
+            setDateTimeFields('recEnd', rec.endTime);
             document.getElementById('recMultiplier').value = rec.multiplier;
             document.getElementById('formSubmitBtn').innerText = "Update Record";
             document.getElementById('recordFormCard').style.display = 'block';
@@ -344,8 +422,8 @@
         async function processFormSubmit() {
             const name = document.getElementById('recName').value.trim();
             const idCode = document.getElementById('recID').value.trim();
-            const startVal = document.getElementById('recStart').value;
-            const endVal = document.getElementById('recEnd').value;
+            const startVal = buildISOFromFields('recStart');
+            const endVal = buildISOFromFields('recEnd');
             const multiplier = document.getElementById('recMultiplier').value;
 
             if (!name || !startVal || !endVal) {
