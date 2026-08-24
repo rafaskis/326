@@ -684,28 +684,28 @@
         // ==========================================
         // GOOGLE DRIVE SYNC ARCHITECTURE
         // ==========================================
-        function initializeGoogleIdentityServiceServices() {
-            if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return;
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
-                scope: GOOGLE_DRIVE_SCOPE,
-                callback: async (tokenResponse) => {
-                    if (tokenResponse.error) return;
-                    activeAccessToken = tokenResponse.access_token;
-                    localStorage.setItem('gdrive_access_token', activeAccessToken);
-                    evaluateSignActionBtnVisualState();
-                    await lookupAndSynchronizeCloudBackupStorageState(true);
-                }
-            });
-            
-            const savedToken = localStorage.getItem('gdrive_access_token');
-            if (savedToken) {
-                activeAccessToken = savedToken;
-                isCloudSyncPending = true;
-                evaluateSignActionBtnVisualState();
-                silentlyExecuteCloudSyncEngineCheck();
-            }
+function initializeGoogleIdentityServiceServices() {
+    if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) return;[cite: 1]
+    tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,[cite: 1]
+        scope: GOOGLE_DRIVE_SCOPE,[cite: 1]
+        callback: async (tokenResponse) => {
+            if (tokenResponse.error) return;[cite: 1]
+            activeAccessToken = tokenResponse.access_token;[cite: 1]
+            localStorage.setItem('gdrive_access_token', activeAccessToken);[cite: 1]
+            evaluateSignActionBtnVisualState();[cite: 1]
+            await lookupAndSynchronizeCloudBackupStorageState(true);[cite: 1]
         }
+    });
+    
+    const savedToken = localStorage.getItem('gdrive_access_token');[cite: 1]
+    if (savedToken) {
+        activeAccessToken = savedToken;[cite: 1]
+        isCloudSyncPending = true;[cite: 1]
+        evaluateSignActionBtnVisualState();[cite: 1]
+        silentlyExecuteCloudSyncEngineCheck();[cite: 1]
+    }
+}
 
         function evaluateSignActionBtnVisualState() {
             const actionBtn = document.getElementById('gdriveMainActionBtn');
@@ -736,22 +736,34 @@
             await lookupAndSynchronizeCloudBackupStorageState(false);
         }
 
-        async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
-            try {
-                let res = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${DEDICATED_FILE_NAME}' and trashed=false`, {
-                    headers: { 'Authorization': `Bearer ${activeAccessToken}` }
-                });
-                let data = await res.json();
-                if (data.files && data.files.length > 0) {
-                    gdriveFileId = data.files[0].id;
-                    await checkTimelineMetricsAgainstCloudTarget(gdriveFileId, promptUser);
-                } else {
-                    await performCloudWriteExecutionSequence();
-                }
-            } catch (err) {
-                document.getElementById('cloudStatusLabel').innerText = "☁ Sync Failure";
-            }
+async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
+    try {
+        let res = await fetch(`https://www.googleapis.com/drive/v3/files?q=name='${DEDICATED_FILE_NAME}' and trashed=false`, {
+            headers: { 'Authorization': `Bearer ${activeAccessToken}` }[cite: 1]
+        });
+
+        // Handle expired token or API errors explicitly
+        if (res.status === 401) {
+            localStorage.removeItem('gdrive_access_token');[cite: 1]
+            activeAccessToken = null;[cite: 1]
+            evaluateSignActionBtnVisualState();[cite: 1]
+            return;
         }
+
+        if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+
+        let data = await res.json();[cite: 1]
+        if (data.files && data.files.length > 0) {[cite: 1]
+            gdriveFileId = data.files[0].id;[cite: 1]
+            await checkTimelineMetricsAgainstCloudTarget(gdriveFileId, promptUser);[cite: 1]
+        } else {
+            await performCloudWriteExecutionSequence();[cite: 1]
+        }
+    } catch (err) {
+        console.error(err);
+        document.getElementById('cloudStatusLabel').innerText = "☁ Sync Failure";[cite: 1]
+    }
+}
 
         async function checkTimelineMetricsAgainstCloudTarget(fileId, promptUser) {
             try {
