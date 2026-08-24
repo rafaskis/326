@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overtime Tracker v3.6</title>
+    <title>326 Overtime Tracker</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         :root {
@@ -74,7 +74,6 @@
         .form-group { display: flex; flex-direction: column; gap: 4px; }
         .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
 
-        /* Custom Date-Time Picker Layout */
         .datetime-picker-row { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 6px; align-items: center; }
         .datetime-picker-row select, .datetime-picker-row input[type="date"] { padding: 8px 6px; font-size: 13px; }
 
@@ -109,7 +108,6 @@
         .btn-edit { color: var(--edit-color); }
         .btn-delete { color: var(--danger); }
 
-        /* RNE-style cloud synchronization prompts and offline tools */
         .choice-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.6); z-index:2000; padding:24px; align-items:center; justify-content:center; }
         .choice-card { background:var(--card-bg); border-radius:16px; padding:24px; width:100%; max-width:430px; box-shadow:0 20px 25px -5px rgba(0,0,0,.15); border:1px solid var(--border); }
         .choice-message { font-size:16px; font-weight:500; color:var(--text-main); line-height:1.5; margin-bottom:24px; text-align:center; }
@@ -176,7 +174,7 @@
             <div class="form-group full-width">
                 <label>Time Started *</label>
                 <div class="datetime-picker-row">
-                    <input type="date" id="recStartDate" onchange="handleStartDateChange()">
+                    <input type="date" id="recStartDate">
                     <select id="recStartHour" onchange="handleHourChange('recStart')"></select>
                     <select id="recStartMin">
                         <option value="00">00</option>
@@ -187,23 +185,23 @@
                 </div>
             </div>
 
-<!-- End Time Selector -->
-<div class="form-group full-width">
-    <label>Time Ended *</label>
-    <div class="datetime-picker-row">
-        <select id="recEndDayOffset">
-            <option value="0">ΙΔΙΑ ΜΕΡΑ</option>
-            <option value="1">ΕΠΟΜΕΝΗ ΜΕΡΑ</option>
-        </select>
-        <select id="recEndHour" onchange="handleHourChange('recEnd')"></select>
-        <select id="recEndMin">
-            <option value="00">00</option>
-            <option value="15">15</option>
-            <option value="30">30</option>
-            <option value="45">45</option>
-        </select>
-    </div>
-</div>
+            <!-- End Time Selector -->
+            <div class="form-group full-width">
+                <label>Time Ended *</label>
+                <div class="datetime-picker-row">
+                    <select id="recEndDayOffset">
+                        <option value="0">ΙΔΙΑ ΜΕΡΑ</option>
+                        <option value="1">ΕΠΟΜΕΝΗ ΜΕΡΑ</option>
+                    </select>
+                    <select id="recEndHour" onchange="handleHourChange('recEnd')"></select>
+                    <select id="recEndMin">
+                        <option value="00">00</option>
+                        <option value="15">15</option>
+                        <option value="30">30</option>
+                        <option value="45">45</option>
+                    </select>
+                </div>
+            </div>
 
             <div class="form-group full-width">
                 <label>Multiplier *</label>
@@ -257,6 +255,8 @@
         function populateHourOptions() {
             const startHourSelect = document.getElementById('recStartHour');
             const endHourSelect = document.getElementById('recEndHour');
+            if (!startHourSelect || !endHourSelect) return;
+
             startHourSelect.innerHTML = '';
             endHourSelect.innerHTML = '';
 
@@ -268,29 +268,15 @@
         }
 
         function handleHourChange(prefix) {
-            const hourVal = document.getElementById(`${prefix}Hour`).value;
+            const hourSelect = document.getElementById(`${prefix}Hour`);
             const minSelect = document.getElementById(`${prefix}Min`);
+            if (!hourSelect || !minSelect) return;
 
-            if (hourVal === "24") {
+            if (hourSelect.value === "24") {
                 minSelect.value = "00";
                 minSelect.disabled = true;
             } else {
                 minSelect.disabled = false;
-            }
-        }
-
-        function handleStartDateChange() {
-            const startDateVal = document.getElementById('recStartDate').value;
-            const endDateInput = document.getElementById('recEndDate');
-            
-            if (startDateVal) {
-                endDateInput.disabled = false;
-                if (!endDateInput.value || endDateInput.value < startDateVal) {
-                    endDateInput.value = startDateVal;
-                }
-            } else {
-                endDateInput.disabled = true;
-                endDateInput.value = '';
             }
         }
 
@@ -342,9 +328,6 @@
             render();
         }
 
-        // ==========================================
-        // DATE FORMATTER (DD/MM/YYYY HH:mm - 24H STRICT)
-        // ==========================================
         function formatDisplayDate(isoString) {
             if (!isoString) return '';
             const d = new Date(isoString);
@@ -357,9 +340,6 @@
             return `${day}/${month}/${year} ${hours}:${minutes}`;
         }
 
-        // ==========================================
-        // OVERTIME COMPUTATION ENGINE
-        // ==========================================
         function calculateOvertime(startDt, endDt, multiplier) {
             let start = new Date(startDt);
             let end = new Date(endDt);
@@ -378,7 +358,7 @@
             const stepHours = 0.25;
 
             while (current < end) {
-                let day = current.getDay(); // 0 = Sunday, 6 = Saturday
+                let day = current.getDay();
                 let hour = current.getHours() + (current.getMinutes() / 60);
 
                 if (multiplier === 'ΒΑΡΔΙΑ') {
@@ -388,17 +368,17 @@
                         hoursToPay += stepHours * 1.5;
                     }
                 } else if (multiplier === 'ΓΡΑΦΕΙΑΚΟ') {
-                    if (day === 0) { // Sunday 00:00 - 24:00 @ 2.0x
+                    if (day === 0) {
                         hoursToPay += stepHours * 2.0;
-                    } else if (day === 6) { // Saturday
+                    } else if (day === 6) {
                         if (hour < 13) {
-                            hoursToPay += stepHours * 1.5; // 00:00 - 13:00 @ 1.5x
+                            hoursToPay += stepHours * 1.5;
                         } else {
-                            hoursToPay += stepHours * 2.0; // 13:00 - 24:00 @ 2.0x
+                            hoursToPay += stepHours * 2.0;
                         }
-                    } else { // Weekdays (Monday to Friday)
+                    } else {
                         if (hour >= 17) {
-                            hoursToPay += stepHours * 1.5; // 17:00 - 24:00 @ 1.5x
+                            hoursToPay += stepHours * 1.5;
                         }
                     }
                 }
@@ -411,77 +391,67 @@
             };
         }
 
-function setDateTimeFields(prefix, isoString) {
-    if (!isoString) {
-        const now = new Date();
-        const year = now.getFullYear();
-        const month = (now.getMonth() + 1).toString().padStart(2, '0');
-        const day = now.getDate().toString().padStart(2, '0');
-        
-        document.getElementById(`recStartDate`).value = `${year}-${month}-${day}`;
-        document.getElementById(`${prefix}Hour`).value = "08";
-        document.getElementById(`${prefix}Min`).value = "00";
-        if (prefix === 'recEnd') {
-            document.getElementById('recEndDayOffset').value = "0";
+        function setDateTimeFields(prefix, isoString) {
+            const now = isoString ? new Date(isoString) : new Date();
+            const year = now.getFullYear();
+            const month = (now.getMonth() + 1).toString().padStart(2, '0');
+            const day = now.getDate().toString().padStart(2, '0');
+            const hourStr = now.getHours().toString().padStart(2, '0');
+            
+            const minNum = now.getMinutes();
+            let minStr = "00";
+            if (minNum >= 38) minStr = "45";
+            else if (minNum >= 23) minStr = "30";
+            else if (minNum >= 8) minStr = "15";
+
+            if (prefix === 'recStart') {
+                const dateInput = document.getElementById('recStartDate');
+                if (dateInput) dateInput.value = `${year}-${month}-${day}`;
+            }
+
+            const hourSelect = document.getElementById(`${prefix}Hour`);
+            const minSelect = document.getElementById(`${prefix}Min`);
+
+            if (hourSelect) hourSelect.value = isoString ? hourStr : "08";
+            if (minSelect) minSelect.value = isoString ? minStr : "00";
+            if (prefix === 'recEnd') {
+                const offsetSelect = document.getElementById('recEndDayOffset');
+                if (offsetSelect) offsetSelect.value = "0";
+            }
+
+            handleHourChange(prefix);
         }
-        handleHourChange(prefix);
-        return;
-    }
-    const d = new Date(isoString);
-    const hourStr = d.getHours().toString().padStart(2, '0');
-    const minNum = d.getMinutes();
 
-    let minStr = "00";
-    if (minNum >= 38) minStr = "45";
-    else if (minNum >= 23) minStr = "30";
-    else if (minNum >= 8) minStr = "15";
+        function buildISOFromFields(prefix) {
+            const dateVal = document.getElementById('recStartDate').value;
+            const hourVal = document.getElementById(`${prefix}Hour`).value;
+            const minVal = document.getElementById(`${prefix}Min`).value;
 
-    if (prefix === 'recStart') {
-        const year = d.getFullYear();
-        const month = (d.getMonth() + 1).toString().padStart(2, '0');
-        const day = d.getDate().toString().padStart(2, '0');
-        document.getElementById('recStartDate').value = `${year}-${month}-${day}`;
-    }
+            if (!dateVal) return null;
 
-    document.getElementById(`${prefix}Hour`).value = hourStr;
-    document.getElementById(`${prefix}Min`).value = minStr;
-    handleHourChange(prefix);
-}
+            const parts = dateVal.split('-');
+            let baseDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0);
 
-function buildISOFromFields(prefix) {
-    const dateVal = document.getElementById('recStartDate').value;
-    const hourVal = document.getElementById(`${prefix}Hour`).value;
-    const minVal = document.getElementById(`${prefix}Min`).value;
+            if (prefix === 'recEnd') {
+                const offset = parseInt(document.getElementById('recEndDayOffset').value) || 0;
+                baseDate.setDate(baseDate.getDate() + offset);
+            }
 
-    if (!dateVal) return null;
+            if (hourVal === "24") {
+                baseDate.setDate(baseDate.getDate() + 1);
+                return baseDate.toISOString();
+            }
 
-    const parts = dateVal.split('-');
-    let baseDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0);
+            baseDate.setHours(parseInt(hourVal), parseInt(minVal), 0);
+            return baseDate.toISOString();
+        }
 
-    if (prefix === 'recEnd') {
-        const offset = parseInt(document.getElementById('recEndDayOffset').value) || 0;
-        baseDate.setDate(baseDate.getDate() + offset);
-    }
-
-    if (hourVal === "24") {
-        baseDate.setDate(baseDate.getDate() + 1);
-        return baseDate.toISOString();
-    }
-
-    baseDate.setHours(parseInt(hourVal), parseInt(minVal), 0);
-    return baseDate.toISOString();
-}
-
-        // ==========================================
-        // FORM & RECORD CONTROLLERS
-        // ==========================================
         function openCreateMode() {
             editingRecordId = null;
             document.getElementById('recName').value = '';
             document.getElementById('recID').value = '';
             
             setDateTimeFields('recStart', null);
-            handleStartDateChange();
             setDateTimeFields('recEnd', null);
 
             document.getElementById('recMultiplier').value = meta.defaultMultiplier;
@@ -490,33 +460,32 @@ function buildISOFromFields(prefix) {
             document.getElementById('formTriggerBtn').style.display = 'none';
         }
 
-function openEditMode(id) {
-    const rec = records.find(r => r.id === id);
-    if (!rec) return;
+        function openEditMode(id) {
+            const rec = records.find(r => r.id === id);
+            if (!rec) return;
 
-    editingRecordId = id;
-    document.getElementById('recName').value = rec.name || '';
-    document.getElementById('recID').value = rec.idCode || '';
-    
-    setDateTimeFields('recStart', rec.startTime);
-    setDateTimeFields('recEnd', rec.endTime);
+            editingRecordId = id;
+            document.getElementById('recName').value = rec.name || '';
+            document.getElementById('recID').value = rec.idCode || '';
+            
+            setDateTimeFields('recStart', rec.startTime);
+            setDateTimeFields('recEnd', rec.endTime);
 
-    // Calculate whether the end date falls on the next day relative to start date
-    if (rec.startTime && rec.endTime) {
-        const s = new Date(rec.startTime);
-        const e = new Date(rec.endTime);
-        const sDay = new Date(s.getFullYear(), s.getMonth(), s.getDate());
-        const eDay = new Date(e.getFullYear(), e.getMonth(), e.getDate());
-        const diffDays = Math.round((eDay - sDay) / (1000 * 60 * 60 * 24));
-        document.getElementById('recEndDayOffset').value = diffDays > 0 ? "1" : "0";
-    }
-    
-    document.getElementById('recMultiplier').value = rec.multiplier;
-    document.getElementById('formSubmitBtn').innerText = "Update Record";
-    document.getElementById('recordFormCard').style.display = 'block';
-    document.getElementById('formTriggerBtn').style.display = 'none';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+            if (rec.startTime && rec.endTime) {
+                const s = new Date(rec.startTime);
+                const e = new Date(rec.endTime);
+                const sDay = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+                const eDay = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+                const diffDays = Math.round((eDay - sDay) / (1000 * 60 * 60 * 24));
+                document.getElementById('recEndDayOffset').value = diffDays > 0 ? "1" : "0";
+            }
+            
+            document.getElementById('recMultiplier').value = rec.multiplier;
+            document.getElementById('formSubmitBtn').innerText = "Update Record";
+            document.getElementById('recordFormCard').style.display = 'block';
+            document.getElementById('formTriggerBtn').style.display = 'none';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
 
         function closeFormDisplay() {
             document.getElementById('recordFormCard').style.display = 'none';
@@ -524,61 +493,61 @@ function openEditMode(id) {
             editingRecordId = null;
         }
 
-async function processFormSubmit() {
-    const name = document.getElementById('recName').value.trim();
-    const idCode = document.getElementById('recID').value.trim();
-    const startDateVal = document.getElementById('recStartDate').value;
+        async function processFormSubmit() {
+            const name = document.getElementById('recName').value.trim();
+            const idCode = document.getElementById('recID').value.trim();
+            const startDateVal = document.getElementById('recStartDate').value;
 
-    if (!startDateVal) {
-        alert("Please select Start Date.");
-        return;
-    }
+            if (!startDateVal) {
+                alert("Please select Start Date.");
+                return;
+            }
 
-    const startVal = buildISOFromFields('recStart');
-    const endVal = buildISOFromFields('recEnd');
-    const multiplier = document.getElementById('recMultiplier').value;
+            const startVal = buildISOFromFields('recStart');
+            const endVal = buildISOFromFields('recEnd');
+            const multiplier = document.getElementById('recMultiplier').value;
 
-    const startDateObj = new Date(startVal);
-    const endDateObj = new Date(endVal);
+            const startDateObj = new Date(startVal);
+            const endDateObj = new Date(endVal);
 
-    if (endDateObj <= startDateObj) {
-        alert("Time Ended must be later than Time Started.");
-        return;
-    }
+            if (endDateObj <= startDateObj) {
+                alert("Time Ended must be later than Time Started.");
+                return;
+            }
 
-    const computed = calculateOvertime(startVal, endVal, multiplier);
+            const computed = calculateOvertime(startVal, endVal, multiplier);
 
-    if (editingRecordId) {
-        const rec = records.find(r => r.id === editingRecordId);
-        if (rec) {
-            rec.name = name;
-            rec.idCode = idCode;
-            rec.startTime = startVal;
-            rec.endTime = endVal;
-            rec.multiplier = multiplier;
-            rec.hoursWorked = computed.hoursWorked;
-            rec.hoursToPay = computed.hoursToPay;
+            if (editingRecordId) {
+                const rec = records.find(r => r.id === editingRecordId);
+                if (rec) {
+                    rec.name = name;
+                    rec.idCode = idCode;
+                    rec.startTime = startVal;
+                    rec.endTime = endVal;
+                    rec.multiplier = multiplier;
+                    rec.hoursWorked = computed.hoursWorked;
+                    rec.hoursToPay = computed.hoursToPay;
+                }
+            } else {
+                const newRecord = {
+                    id: 'rec_' + Math.random().toString(36).substr(2, 9),
+                    name,
+                    idCode,
+                    startTime: startVal,
+                    endTime: endVal,
+                    multiplier,
+                    hoursWorked: computed.hoursWorked,
+                    hoursToPay: computed.hoursToPay,
+                    isPaid: false
+                };
+                records.push(newRecord);
+            }
+
+            saveStateToLocalStorage();
+            closeFormDisplay();
+            render();
+            await silentlyExecuteCloudSyncEngineCheck();
         }
-    } else {
-        const newRecord = {
-            id: 'rec_' + Math.random().toString(36).substr(2, 9),
-            name,
-            idCode,
-            startTime: startVal,
-            endTime: endVal,
-            multiplier,
-            hoursWorked: computed.hoursWorked,
-            hoursToPay: computed.hoursToPay,
-            isPaid: false
-        };
-        records.push(newRecord);
-    }
-
-    saveStateToLocalStorage();
-    closeFormDisplay();
-    render();
-    await silentlyExecuteCloudSyncEngineCheck();
-}
 
         async function togglePaidStatus(id) {
             const rec = records.find(r => r.id === id);
@@ -604,108 +573,96 @@ async function processFormSubmit() {
             render();
         }
 
-        // ==========================================
-        // RENDERING ENGINE
-        // ==========================================
-function render() {
-    const container = document.getElementById('monthsContainer');
-    container.innerHTML = '';
+        function render() {
+            const container = document.getElementById('monthsContainer');
+            container.innerHTML = '';
 
-    for (let m = 0; m < 12; m++) {
-        const monthRecords = records.filter(r => {
-            if (!r.startTime) return false;
-            const d = new Date(r.startTime);
-            return d.getFullYear() === activeYear && d.getMonth() === m;
-        });
-
-        let totalHours = 0;
-        let paidHours = 0;
-        let unpaidHours = 0;
-
-        monthRecords.forEach(r => {
-            totalHours += r.hoursToPay;
-            if (r.isPaid) {
-                paidHours += r.hoursToPay;
-            } else {
-                unpaidHours += r.hoursToPay;
-            }
-        });
-
-        // If user has not toggled this month manually, close it if pending (unpaid) hours are 0
-        const isCollapsed = collapsedMonths[m] !== undefined ? collapsedMonths[m] : (unpaidHours === 0);
-
-        const monthCard = document.createElement('div');
-        monthCard.className = "month-card";
-
-        const header = document.createElement('div');
-        header.className = "month-header";
-        header.onclick = () => toggleMonthCollapse(m);
-
-        header.innerHTML = `
-            <div class="month-title">
-                <span>${isCollapsed ? '▶' : '▼'}</span>
-                <span>${MONTH_NAMES[m]}</span>
-            </div>
-            <div class="month-stats">
-                <span class="stat-badge">Total: ${totalHours.toFixed(2)}h</span>
-                <span class="stat-badge paid">Paid: ${paidHours.toFixed(2)}h</span>
-                <span class="stat-badge unpaid">Pending: ${unpaidHours.toFixed(2)}h</span>
-            </div>
-        `;
-
-        monthCard.appendChild(header);
-
-        if (!isCollapsed) {
-            const list = document.createElement('div');
-            list.className = "record-list";
-
-            if (monthRecords.length === 0) {
-                list.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:8px;">No records registered.</div>`;
-            } else {
-                monthRecords.forEach(r => {
-                    const startFormatted = formatDisplayDate(r.startTime);
-                    const endFormatted = formatDisplayDate(r.endTime);
-
-                    const item = document.createElement('div');
-                    item.className = `record-item ${r.isPaid ? 'is-paid' : ''}`;
-                    item.innerHTML = `
-                        <div class="record-top">
-                            <div class="record-title">${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span class="record-id">(${r.name})</span>` : ''}</div>
-                            <span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.multiplier}</span>
-                        </div>
-                        <div class="record-details">
-                            <div>Start: <strong>${startFormatted}</strong></div>
-                            <div>End: <strong>${endFormatted}</strong></div>
-                            <div>Worked: <strong>${r.hoursWorked}h</strong></div>
-                            <div>To Pay: <strong>${r.hoursToPay}h</strong></div>
-                        </div>
-                        <div class="record-actions">
-                            <label class="checkbox-label">
-                                <input type="checkbox" ${r.isPaid ? 'checked' : ''} onchange="togglePaidStatus('${r.id}')">
-                                <span>Paid</span>
-                            </label>
-                            <div class="action-btns">
-                                <button class="btn-icon btn-edit" onclick="openEditMode('${r.id}')">📝 Edit</button>
-                                <button class="btn-icon btn-delete" onclick="deleteRecord('${r.id}')">✕ Delete</button>
-                            </div>
-                        </div>
-                    `;
-                    list.appendChild(item);
+            for (let m = 0; m < 12; m++) {
+                const monthRecords = records.filter(r => {
+                    if (!r.startTime) return false;
+                    const d = new Date(r.startTime);
+                    return d.getFullYear() === activeYear && d.getMonth() === m;
                 });
-            }
-            monthCard.appendChild(list);
-        }
-        container.appendChild(monthCard);
-    }
-}
 
-        // ==========================================
-        // GOOGLE DRIVE SYNC ARCHITECTURE
-        // ==========================================
-        // ==========================================
-        // GOOGLE DRIVE CLOUD SYNCHRONIZATION
-        // Robust OAuth recovery + explicit API errors
-        // ==========================================
+                let totalHours = 0;
+                let paidHours = 0;
+                let unpaidHours = 0;
+
+                monthRecords.forEach(r => {
+                    totalHours += r.hoursToPay;
+                    if (r.isPaid) {
+                        paidHours += r.hoursToPay;
+                    } else {
+                        unpaidHours += r.hoursToPay;
+                    }
+                });
+
+                const isCollapsed = collapsedMonths[m] !== undefined ? collapsedMonths[m] : (unpaidHours === 0);
+
+                const monthCard = document.createElement('div');
+                monthCard.className = "month-card";
+
+                const header = document.createElement('div');
+                header.className = "month-header";
+                header.onclick = () => toggleMonthCollapse(m);
+
+                header.innerHTML = `
+                    <div class="month-title">
+                        <span>${isCollapsed ? '▶' : '▼'}</span>
+                        <span>${MONTH_NAMES[m]}</span>
+                    </div>
+                    <div class="month-stats">
+                        <span class="stat-badge">Total: ${totalHours.toFixed(2)}h</span>
+                        <span class="stat-badge paid">Paid: ${paidHours.toFixed(2)}h</span>
+                        <span class="stat-badge unpaid">Pending: ${unpaidHours.toFixed(2)}h</span>
+                    </div>
+                `;
+
+                monthCard.appendChild(header);
+
+                if (!isCollapsed) {
+                    const list = document.createElement('div');
+                    list.className = "record-list";
+
+                    if (monthRecords.length === 0) {
+                        list.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:8px;">No records registered.</div>`;
+                    } else {
+                        monthRecords.forEach(r => {
+                            const startFormatted = formatDisplayDate(r.startTime);
+                            const endFormatted = formatDisplayDate(r.endTime);
+
+                            const item = document.createElement('div');
+                            item.className = `record-item ${r.isPaid ? 'is-paid' : ''}`;
+                            item.innerHTML = `
+                                <div class="record-top">
+                                    <div class="record-title">${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span class="record-id">(${r.name})</span>` : ''}</div>
+                                    <span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.multiplier}</span>
+                                </div>
+                                <div class="record-details">
+                                    <div>Start: <strong>${startFormatted}</strong></div>
+                                    <div>End: <strong>${endFormatted}</strong></div>
+                                    <div>Worked: <strong>${r.hoursWorked}h</strong></div>
+                                    <div>To Pay: <strong>${r.hoursToPay}h</strong></div>
+                                </div>
+                                <div class="record-actions">
+                                    <label class="checkbox-label">
+                                        <input type="checkbox" ${r.isPaid ? 'checked' : ''} onchange="togglePaidStatus('${r.id}')">
+                                        <span>Paid</span>
+                                    </label>
+                                    <div class="action-btns">
+                                        <button class="btn-icon btn-edit" onclick="openEditMode('${r.id}')">📝 Edit</button>
+                                        <button class="btn-icon btn-delete" onclick="deleteRecord('${r.id}')">✕ Delete</button>
+                                    </div>
+                                </div>
+                            `;
+                            list.appendChild(item);
+                        });
+                    }
+                    monthCard.appendChild(list);
+                }
+                container.appendChild(monthCard);
+            }
+        }
 
         let tokenRequestPromise = null;
         let tokenRequestResolve = null;
@@ -729,17 +686,13 @@ function render() {
                 scope: GOOGLE_DRIVE_SCOPE,
                 callback: async (tokenResponse) => {
                     if (tokenResponse.error) {
-                        const errorText = tokenResponse.error_description || tokenResponse.error || 'Google authorization failed';
-                        console.error('GOOGLE OAUTH ERROR:', tokenResponse);
-
                         if (tokenRequestReject) {
                             const reject = tokenRequestReject;
                             tokenRequestResolve = null;
                             tokenRequestReject = null;
                             tokenRequestPromise = null;
-                            reject(new Error(errorText));
+                            reject(new Error(tokenResponse.error_description || tokenResponse.error));
                         }
-
                         tokenRecoveryInProgress = false;
                         isCloudSyncPending = false;
                         activeAccessToken = null;
@@ -761,7 +714,6 @@ function render() {
                         tokenRequestPromise = null;
                         resolve(activeAccessToken);
                     } else {
-                        // Normal interactive sign-in.
                         isCloudSyncPending = true;
                         await lookupAndSynchronizeCloudBackupStorageState(true);
                     }
@@ -795,10 +747,7 @@ function render() {
         }
 
         function requestFreshGoogleAccessToken() {
-            if (!tokenClient) {
-                return Promise.reject(new Error('Google Identity Services is not initialized.'));
-            }
-
+            if (!tokenClient) return Promise.reject(new Error('Google Identity Services not initialized.'));
             if (tokenRequestPromise) return tokenRequestPromise;
 
             tokenRecoveryInProgress = true;
@@ -807,11 +756,7 @@ function render() {
             tokenRequestPromise = new Promise((resolve, reject) => {
                 tokenRequestResolve = resolve;
                 tokenRequestReject = reject;
-
                 try {
-                    // The stored access token may have expired. Request a fresh token.
-                    // Consent is used deliberately here so an expired token cannot leave
-                    // the application permanently stuck in a failed authentication state.
                     tokenClient.requestAccessToken({ prompt: 'consent' });
                 } catch (err) {
                     tokenRecoveryInProgress = false;
@@ -846,7 +791,6 @@ function render() {
                     await requestFreshGoogleAccessToken();
                     await lookupAndSynchronizeCloudBackupStorageState(true);
                 } catch (err) {
-                    console.error('SIGN-IN ERROR:', err);
                     isCloudSyncPending = false;
                     setCloudStatus('☁ Authentication Failed');
                 }
@@ -865,16 +809,9 @@ function render() {
                 'Authorization': `Bearer ${activeAccessToken}`
             });
 
-            let response;
-            try {
-                response = await fetch(url, Object.assign({}, options, { headers }));
-            } catch (networkError) {
-                throw new Error(`Network error while contacting Google Drive: ${networkError.message || networkError}`);
-            }
+            let response = await fetch(url, Object.assign({}, options, { headers }));
 
             if (response.status === 401 && allowAuthRecovery) {
-                console.warn('Google Drive returned 401. Attempting OAuth recovery.');
-
                 try {
                     await requestFreshGoogleAccessToken();
                     return await googleDriveFetch(url, options, false);
@@ -883,22 +820,15 @@ function render() {
                     gdriveFileId = null;
                     localStorage.removeItem('gdrive_access_token');
                     evaluateSignActionBtnVisualState();
-                    throw new Error(`Google authentication expired and could not be renewed: ${recoveryError.message || recoveryError}`);
+                    throw new Error('Google authentication expired.');
                 }
             }
 
             if (!response.ok) {
                 let errorBody = null;
                 try { errorBody = await response.json(); } catch (_) {}
-
-                const googleMessage = errorBody && errorBody.error
-                    ? (errorBody.error.message || errorBody.error.status || JSON.stringify(errorBody.error))
-                    : `HTTP ${response.status} ${response.statusText}`;
-
-                const detailedError = new Error(`Google Drive API error (${response.status}): ${googleMessage}`);
-                detailedError.status = response.status;
-                detailedError.response = errorBody;
-                throw detailedError;
+                const googleMessage = errorBody && errorBody.error ? (errorBody.error.message || JSON.stringify(errorBody.error)) : `HTTP ${response.status}`;
+                throw new Error(`Google Drive API error: ${googleMessage}`);
             }
 
             return response;
@@ -910,19 +840,16 @@ function render() {
         }
 
         async function fetchCloudDatabase() {
-            if (!activeAccessToken) throw new Error('No Google Drive access token is available.');
+            if (!activeAccessToken) throw new Error('No Google Drive access token.');
 
             if (!gdriveFileId) {
                 const response = await googleDriveFetch(buildDriveFileSearchUrl());
                 const result = await response.json();
-
                 if (!result.files || result.files.length === 0) return null;
                 gdriveFileId = result.files[0].id;
             }
 
-            const response = await googleDriveFetch(
-                `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdriveFileId)}?alt=media`
-            );
+            const response = await googleDriveFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdriveFileId)}?alt=media`);
             return await response.json();
         }
 
@@ -931,7 +858,6 @@ function render() {
 
             try {
                 setCloudStatus('☁ Checking Cloud...');
-
                 const response = await googleDriveFetch(buildDriveFileSearchUrl());
                 const data = await response.json();
 
@@ -939,43 +865,22 @@ function render() {
                     gdriveFileId = data.files[0].id;
                     await checkTimelineMetricsAgainstCloudTarget(gdriveFileId, promptUser);
                 } else {
-                    // No cloud file exists. Create the first backup from the local database.
                     await performCloudWriteExecutionSequence(true);
                 }
             } catch (err) {
-                console.error('OVERTIME CLOUD SYNC FAILURE:', err);
                 isCloudSyncPending = false;
                 setCloudStatus('☁ Sync Failure');
-                showCloudError('Cloud synchronization failed', err);
             } finally {
                 isCloudSyncPending = false;
             }
         }
 
-        function showCloudError(title, err) {
-            const status = err && err.status ? `\nHTTP Status: ${err.status}` : '';
-            const message = err && err.message ? err.message : String(err || 'Unknown error');
-            console.error(`${title}: ${message}${status}`);
-
-            // Keep the normal UI clean. The detailed error is available in the console.
-            // A small alert is used only for a real sync failure so the user knows why
-            // synchronization stopped instead of assuming their local data is damaged.
-            if (window.__otLastCloudErrorMessage !== message) {
-                window.__otLastCloudErrorMessage = message;
-                alert(`${title}:\n\n${message}${status}`);
-            }
-        }
-
         async function checkTimelineMetricsAgainstCloudTarget(fileId, promptUser) {
             try {
-                const response = await googleDriveFetch(
-                    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`
-                );
+                const response = await googleDriveFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`);
                 const cloudData = await response.json();
 
-                if (!cloudData || !Array.isArray(cloudData.records) || !cloudData.meta) {
-                    throw new Error('The Google Drive backup exists but does not contain a valid Overtime Tracker database.');
-                }
+                if (!cloudData || !Array.isArray(cloudData.records)) return;
 
                 if (!meta.lastUpdated && records.length === 0) {
                     await performCloudPullExtractionSequence(cloudData);
@@ -983,51 +888,29 @@ function render() {
                 }
 
                 const localStamp = meta.lastUpdated || 0;
-                const cloudStamp = cloudData.meta.lastUpdated || 0;
+                const cloudStamp = cloudData.meta ? cloudData.meta.lastUpdated || 0 : 0;
                 const localDateStr = localStamp ? new Date(localStamp).toLocaleString() : 'Never';
                 const cloudDateStr = cloudStamp ? new Date(cloudStamp).toLocaleString() : 'Never';
 
                 if (localStamp === cloudStamp) {
                     setCloudStatus('☁ Cloud Synced');
-                    if (promptUser) {
-                        await presentCloudSyncCrossroadsPrompt(
-                            'match',
-                            'Your local cache database timeline perfectly matches the Cloud asset baseline storage.',
-                            localDateStr,
-                            cloudDateStr
-                        );
-                    }
                 } else if (cloudStamp > localStamp) {
                     setCloudStatus('☁ Update Available');
                     if (promptUser) {
-                        const decision = await presentCloudSyncCrossroadsPrompt(
-                            'cloud-newer',
-                            'The backup copy on Google Drive is newer than your current local browser instance.',
-                            localDateStr,
-                            cloudDateStr
-                        );
+                        const decision = await presentCloudSyncCrossroadsPrompt('cloud-newer', 'The backup copy on Google Drive is newer than your current local browser instance.', localDateStr, cloudDateStr);
                         if (decision === 'pull') await performCloudPullExtractionSequence(cloudData);
                         else if (decision === 'push') await performCloudWriteExecutionSequence(false);
-                        else setCloudStatus('☁ Connected');
                     }
                 } else {
                     setCloudStatus('☁ Local Changes Pending');
                     if (promptUser) {
-                        const decision = await presentCloudSyncCrossroadsPrompt(
-                            'local-newer',
-                            'Your current browser state contains changes that are newer than the active cloud backup file.',
-                            localDateStr,
-                            cloudDateStr
-                        );
+                        const decision = await presentCloudSyncCrossroadsPrompt('local-newer', 'Your current browser state contains changes that are newer than the active cloud backup file.', localDateStr, cloudDateStr);
                         if (decision === 'push') await performCloudWriteExecutionSequence(false);
                         else if (decision === 'pull') await performCloudPullExtractionSequence(cloudData);
-                        else setCloudStatus('☁ Connected');
                     }
                 }
             } catch (err) {
-                console.error('OVERTIME CLOUD TIMELINE ERROR:', err);
                 setCloudStatus('☁ Cloud Read Failed');
-                showCloudError('Cloud backup could not be read', err);
             }
         }
 
@@ -1039,9 +922,7 @@ function render() {
                 box.className = 'vertical-buttons';
 
                 if (state === 'match') {
-                    text.innerHTML = `<strong>Database Synchronization</strong><br><br>${headline}<br><br>
-                        <span style="font-size:12px;color:var(--text-muted);">Local Cache Last Updated:</span><br><strong>${localDateStr}</strong><br><br>
-                        <span style="font-size:12px;color:var(--primary);">Cloud Backup Last Updated:</span><br><strong>${cloudDateStr}</strong>`;
+                    text.innerHTML = `<strong>Database Synchronization</strong><br><br>${headline}<br><br><span style="font-size:12px;color:var(--text-muted);">Local Cache Last Updated:</span><br><strong>${localDateStr}</strong><br><br><span style="font-size:12px;color:var(--primary);">Cloud Backup Last Updated:</span><br><strong>${cloudDateStr}</strong>`;
                     box.innerHTML = `<button class="btn-choice btn-choice-right btn-choice-full" style="background:var(--success);border-color:var(--success);" id="btnSyncPerfect">Perfect!</button>`;
                     const b = document.getElementById('btnSyncPerfect');
                     const done = () => {
@@ -1052,17 +933,11 @@ function render() {
                     };
                     b.addEventListener('click', done);
                 } else {
-                    text.innerHTML = `<strong>Database Synchronization</strong><br><br>${headline}<br><br>
-                        <span style="font-size:12px;color:var(--text-muted);">Local Cache Last Updated:</span><br><strong>${localDateStr}</strong><br><br>
-                        <span style="font-size:12px;color:var(--primary);">Cloud Backup Last Updated:</span><br><strong>${cloudDateStr}</strong><br><br>What action would you like to take?`;
+                    text.innerHTML = `<strong>Database Synchronization</strong><br><br>${headline}<br><br><span style="font-size:12px;color:var(--text-muted);">Local Cache Last Updated:</span><br><strong>${localDateStr}</strong><br><br><span style="font-size:12px;color:var(--primary);">Cloud Backup Last Updated:</span><br><strong>${cloudDateStr}</strong><br><br>What action would you like to take?`;
 
                     box.innerHTML = state === 'cloud-newer'
-                        ? `<button class="btn-choice btn-choice-full" style="background:var(--success);color:white;" id="btnSyncPull">Restore (Download Cloud to Local)</button>
-                           <button class="btn-choice btn-choice-danger btn-choice-full" id="btnSyncPush">Backup (Upload Local to Cloud)</button>
-                           <button class="btn-choice btn-choice-left btn-choice-full" id="btnSyncIgnore">Do Nothing (Keep Offline Split)</button>`
-                        : `<button class="btn-choice btn-choice-right btn-choice-full" id="btnSyncPush">Backup (Upload Local to Cloud)</button>
-                           <button class="btn-choice btn-choice-danger btn-choice-full" id="btnSyncPull">Restore (Download Cloud to Local)</button>
-                           <button class="btn-choice btn-choice-left btn-choice-full" id="btnSyncIgnore">Do Nothing (Keep Offline Split)</button>`;
+                        ? `<button class="btn-choice btn-choice-full" style="background:var(--success);color:white;" id="btnSyncPull">Restore (Download Cloud to Local)</button><button class="btn-choice btn-choice-danger btn-choice-full" id="btnSyncPush">Backup (Upload Local to Cloud)</button><button class="btn-choice btn-choice-left btn-choice-full" id="btnSyncIgnore">Do Nothing</button>`
+                        : `<button class="btn-choice btn-choice-right btn-choice-full" id="btnSyncPush">Backup (Upload Local to Cloud)</button><button class="btn-choice btn-choice-danger btn-choice-full" id="btnSyncPull">Restore (Download Cloud to Local)</button><button class="btn-choice btn-choice-left btn-choice-full" id="btnSyncIgnore">Do Nothing</button>`;
 
                     const p = document.getElementById('btnSyncPush');
                     const q = document.getElementById('btnSyncPull');
@@ -1095,7 +970,7 @@ function render() {
                 const o = document.getElementById('customChoiceOverlay');
                 const t = document.getElementById('choiceOverlayMessage');
                 const b = document.getElementById('choiceButtonsContainer');
-                t.innerHTML = '<strong>Sign Out</strong><br><br>Disconnect this browser from Google Drive?<br><br>Local overtime data will remain intact until browser cache is explicitly cleared.';
+                t.innerHTML = '<strong>Sign Out</strong><br><br>Disconnect this browser from Google Drive?';
                 b.className = 'choice-buttons-row';
                 b.innerHTML = '<button class="btn-choice btn-choice-left" id="signoutCancel">Cancel</button><button class="btn-choice btn-choice-danger" id="signoutProceed">Sign Out</button>';
                 const c = document.getElementById('signoutCancel');
@@ -1115,106 +990,43 @@ function render() {
         }
 
         async function manuallyTriggerCloudBackup() {
-            if (!activeAccessToken) {
-                setCloudStatus('☁ Access Token Missing');
-                alert('Sign in first.');
-                return;
-            }
-
+            if (!activeAccessToken) { alert('Sign in first.'); return; }
             try {
                 const cloudDb = await fetchCloudDatabase();
                 const localStamp = meta.lastUpdated || 0;
-                const cloudStamp = cloudDb && cloudDb.meta ? (cloudDb.meta.lastUpdated || 0) : 0;
-                const localDate = localStamp ? new Date(localStamp).toLocaleString() : 'Never (Empty Local Cache)';
-                const cloudDate = cloudStamp ? new Date(cloudStamp).toLocaleString() : 'Empty Cloud Storage';
+                const cloudStamp = cloudDb && cloudDb.meta ? cloudDb.meta.lastUpdated || 0 : 0;
+                const localDate = localStamp ? new Date(localStamp).toLocaleString() : 'Empty Local';
+                const cloudDate = cloudStamp ? new Date(cloudStamp).toLocaleString() : 'Empty Cloud';
 
-                let state = 'match';
-                let headline = '<span style="color:#d4af37;font-weight:bold;">Your offline storage is perfectly matching cloud copies.</span>';
-
-                if (!cloudDb && localStamp === 0) {
-                    headline = 'Both local storage and cloud storage are currently uninitialized.';
-                    state = 'local-newer';
-                } else if (!cloudDb) {
-                    state = 'local-newer';
-                    headline = 'No file found in the cloud. Local cache is ready to back up.';
-                } else if (localStamp > cloudStamp) {
-                    state = 'local-newer';
-                    headline = '<span style="color:#2563eb;font-weight:bold;">Your Local Cache is newer than the Cloud Backup.</span>';
-                } else if (cloudStamp > localStamp) {
-                    state = 'cloud-newer';
-                    headline = '<span style="color:#16a34a;font-weight:bold;">The Cloud Backup is newer than your Local Cache.</span>';
-                }
+                let state = localStamp >= cloudStamp ? 'local-newer' : 'cloud-newer';
+                let headline = 'Sync state evaluated.';
 
                 const decision = await presentCloudSyncCrossroadsPrompt(state, headline, localDate, cloudDate);
                 if (decision === 'push') await performCloudWriteExecutionSequence(false);
                 else if (decision === 'pull') await performCloudPullExtractionSequence(cloudDb);
             } catch (err) {
-                console.error('MANUAL CLOUD BACKUP ERROR:', err);
                 setCloudStatus('☁ Dynamic Sync Error');
-                showCloudError('Cloud backup operation failed', err);
             }
         }
 
         async function manuallyTriggerCloudRestore() {
-            if (!activeAccessToken) {
-                setCloudStatus('☁ Access Token Missing');
-                alert('Sign in first.');
-                return;
-            }
-
+            if (!activeAccessToken) { alert('Sign in first.'); return; }
             try {
                 const cloudDb = await fetchCloudDatabase();
-                if (!cloudDb) {
-                    setCloudStatus('☁ Cloud File Missing');
-                    alert('No overtime backup file was found in Google Drive.');
-                    return;
-                }
+                if (!cloudDb) { alert('No overtime backup file was found.'); return; }
 
-                const localStamp = meta.lastUpdated || 0;
-                const cloudStamp = cloudDb.meta ? (cloudDb.meta.lastUpdated || 0) : 0;
-                const confirmed = await new Promise(resolve => {
-                    const o = document.getElementById('customChoiceOverlay');
-                    const t = document.getElementById('choiceOverlayMessage');
-                    const b = document.getElementById('choiceButtonsContainer');
-                    t.innerHTML = `<strong>Restore Overtime Database</strong><br><br>This will replace the current local overtime database with the Google Drive backup.<br><br>
-                        <span style="font-size:12px;color:var(--text-muted);">Local Cache Last Updated:</span><br><strong>${localStamp ? new Date(localStamp).toLocaleString() : 'Never (Empty Local Cache)'}</strong><br><br>
-                        <span style="font-size:12px;color:var(--primary);">Cloud Backup Last Updated:</span><br><strong>${cloudStamp ? new Date(cloudStamp).toLocaleString() : 'Empty Cloud Storage'}</strong><br><br>Continue with restore?`;
-                    b.className = 'choice-buttons-row';
-                    b.innerHTML = '<button class="btn-choice btn-choice-left" id="restoreCancel">Cancel</button><button class="btn-choice btn-choice-danger" id="restoreProceed">Restore</button>';
-                    const c = document.getElementById('restoreCancel');
-                    const p = document.getElementById('restoreProceed');
-                    const cleanup = () => {
-                        c.removeEventListener('click', no);
-                        p.removeEventListener('click', yes);
-                        o.style.display = 'none';
-                        resetContainerToDefaultTemplate(b);
-                    };
-                    const no = () => { cleanup(); resolve(false); };
-                    const yes = () => { cleanup(); resolve(true); };
-                    c.addEventListener('click', no);
-                    p.addEventListener('click', yes);
-                    o.style.display = 'flex';
-                });
-
-                if (confirmed) await performCloudPullExtractionSequence(cloudDb);
-                else setCloudStatus('☁ Restore Cancelled');
+                await performCloudPullExtractionSequence(cloudDb);
             } catch (err) {
-                console.error('MANUAL CLOUD RESTORE ERROR:', err);
                 setCloudStatus('☁ Restore Failed');
-                showCloudError('Cloud restore operation failed', err);
             }
         }
 
         async function performCloudPullExtractionSequence(cloudDb) {
-            if (!cloudDb || !Array.isArray(cloudDb.records)) {
-                throw new Error('The cloud backup is not a valid Overtime Tracker database.');
-            }
+            if (!cloudDb || !Array.isArray(cloudDb.records)) return;
 
             records = cloudDb.records;
             meta = cloudDb.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now() };
 
-            // IMPORTANT: preserve the cloud timestamp exactly. Do not call saveStateToLocalStorage(),
-            // because that would replace the cloud timestamp with a new local timestamp.
             localStorage.setItem('ot_records', JSON.stringify(records));
             localStorage.setItem('ot_meta', JSON.stringify(meta));
             isCloudSyncPending = false;
@@ -1226,9 +1038,9 @@ function render() {
         }
 
         async function performCloudWriteExecutionSequence(isInitialInstantiation = false) {
-            if (!activeAccessToken) throw new Error('No Google Drive access token is available.');
+            if (!activeAccessToken) return;
 
-            setCloudStatus(isInitialInstantiation ? '☁ Creating Cloud Backup...' : '☁ Uploading...');
+            setCloudStatus('☁ Uploading...');
             isCloudSyncPending = false;
 
             meta.lastUpdated = Date.now();
@@ -1245,7 +1057,7 @@ function render() {
             }
 
             const metadata = { name: DEDICATED_FILE_NAME, mimeType: 'application/json' };
-            const boundary = 'overtime_boundary_v35';
+            const boundary = 'overtime_boundary_v36';
             const delimiter = `\r\n--${boundary}\r\n`;
             const closeDelimiter = `\r\n--${boundary}--`;
             const body = delimiter +
@@ -1258,26 +1070,17 @@ function render() {
 
             const response = await googleDriveFetch(url, {
                 method,
-                headers: {
-                    'Content-Type': `multipart/related; boundary=${boundary}`
-                },
+                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
                 body
             });
 
             const responseText = await response.text();
             let responseData = {};
-            if (responseText) {
-                try { responseData = JSON.parse(responseText); } catch (_) {}
-            }
+            if (responseText) { try { responseData = JSON.parse(responseText); } catch (_) {} }
 
             if (responseData.id) gdriveFileId = responseData.id;
             setCloudStatus('☁ Cloud Synced');
-            return responseData;
         }
-
-        // ==========================================
-        // OFFLINE BACKUP / RESTORE UTILITIES
-        // ==========================================
 
         function toggleUtilityDrawer() {
             const card = document.getElementById('utilityDrawerCard');
@@ -1293,7 +1096,7 @@ function render() {
         }
 
         function triggerResetToScratch() {
-            if (!confirm('Are you sure you want to clear your local overtime database completely? All locally stored overtime records and settings will be wiped out.')) return;
+            if (!confirm('Clear local database?')) return;
             localStorage.removeItem('ot_records');
             localStorage.removeItem('ot_meta');
             records = [];
@@ -1309,7 +1112,7 @@ function render() {
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `overtime_database_backup_${new Date().toISOString().slice(0, 10)}.json`;
+            a.download = `overtime_backup_${new Date().toISOString().slice(0, 10)}.json`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -1324,26 +1127,23 @@ function render() {
             reader.onload = function(e) {
                 try {
                     const parsed = JSON.parse(e.target.result);
-                    if (!Array.isArray(parsed.records)) throw new Error('The backup does not contain a valid records array.');
+                    if (!Array.isArray(parsed.records)) throw new Error('Invalid format');
 
                     records = parsed.records;
                     meta = parsed.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now() };
                     meta.lastUpdated = Date.now();
                     localStorage.setItem('ot_records', JSON.stringify(records));
                     localStorage.setItem('ot_meta', JSON.stringify(meta));
-                    alert('Overtime database recovered successfully.');
                     location.reload();
                 } catch (err) {
-                    console.error('OFFLINE IMPORT ERROR:', err);
-                    alert(`Failure parsing the local overtime backup file.\n\n${err.message || err}`);
+                    alert('Failure importing file.');
                 } finally {
                     event.target.value = '';
                 }
             };
             reader.readAsText(file);
         }
-
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.6</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.6.1</div>
 </body>
 </html>
