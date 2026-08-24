@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Overtime Tracker v3.5</title>
+    <title>Overtime Tracker v3.6</title>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <style>
         :root {
@@ -187,20 +187,23 @@
                 </div>
             </div>
 
-            <!-- End Time Selector -->
-            <div class="form-group full-width">
-                <label>Time Ended *</label>
-                <div class="datetime-picker-row">
-                    <input type="date" id="recEndDate">
-                    <select id="recEndHour" onchange="handleHourChange('recEnd')"></select>
-                    <select id="recEndMin">
-                        <option value="00">00</option>
-                        <option value="15">15</option>
-                        <option value="30">30</option>
-                        <option value="45">45</option>
-                    </select>
-                </div>
-            </div>
+<!-- End Time Selector -->
+<div class="form-group full-width">
+    <label>Time Ended *</label>
+    <div class="datetime-picker-row">
+        <select id="recEndDayOffset">
+            <option value="0">ΙΔΙΑ ΜΕΡΑ</option>
+            <option value="1">ΕΠΟΜΕΝΗ ΜΕΡΑ</option>
+        </select>
+        <select id="recEndHour" onchange="handleHourChange('recEnd')"></select>
+        <select id="recEndMin">
+            <option value="00">00</option>
+            <option value="15">15</option>
+            <option value="30">30</option>
+            <option value="45">45</option>
+        </select>
+    </div>
+</div>
 
             <div class="form-group full-width">
                 <label>Multiplier *</label>
@@ -408,55 +411,66 @@
             };
         }
 
-        function setDateTimeFields(prefix, isoString) {
-            if (!isoString) {
-                const now = new Date();
-                const year = now.getFullYear();
-                const month = (now.getMonth() + 1).toString().padStart(2, '0');
-                const day = now.getDate().toString().padStart(2, '0');
-                
-                document.getElementById(`${prefix}Date`).value = `${year}-${month}-${day}`;
-                document.getElementById(`${prefix}Hour`).value = "08";
-                document.getElementById(`${prefix}Min`).value = "00";
-                handleHourChange(prefix);
-                return;
-            }
-            const d = new Date(isoString);
-            const year = d.getFullYear();
-            const month = (d.getMonth() + 1).toString().padStart(2, '0');
-            const day = d.getDate().toString().padStart(2, '0');
-            const hourStr = d.getHours().toString().padStart(2, '0');
-            const minNum = d.getMinutes();
-
-            let minStr = "00";
-            if (minNum >= 38) minStr = "45";
-            else if (minNum >= 23) minStr = "30";
-            else if (minNum >= 8) minStr = "15";
-
-            document.getElementById(`${prefix}Date`).value = `${year}-${month}-${day}`;
-            document.getElementById(`${prefix}Hour`).value = hourStr;
-            document.getElementById(`${prefix}Min`).value = minStr;
-            handleHourChange(prefix);
+function setDateTimeFields(prefix, isoString) {
+    if (!isoString) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = (now.getMonth() + 1).toString().padStart(2, '0');
+        const day = now.getDate().toString().padStart(2, '0');
+        
+        document.getElementById(`recStartDate`).value = `${year}-${month}-${day}`;
+        document.getElementById(`${prefix}Hour`).value = "08";
+        document.getElementById(`${prefix}Min`).value = "00";
+        if (prefix === 'recEnd') {
+            document.getElementById('recEndDayOffset').value = "0";
         }
+        handleHourChange(prefix);
+        return;
+    }
+    const d = new Date(isoString);
+    const hourStr = d.getHours().toString().padStart(2, '0');
+    const minNum = d.getMinutes();
 
-        function buildISOFromFields(prefix) {
-            const dateVal = document.getElementById(`${prefix}Date`).value;
-            const hourVal = document.getElementById(`${prefix}Hour`).value;
-            const minVal = document.getElementById(`${prefix}Min`).value;
+    let minStr = "00";
+    if (minNum >= 38) minStr = "45";
+    else if (minNum >= 23) minStr = "30";
+    else if (minNum >= 8) minStr = "15";
 
-            if (!dateVal) return null;
+    if (prefix === 'recStart') {
+        const year = d.getFullYear();
+        const month = (d.getMonth() + 1).toString().padStart(2, '0');
+        const day = d.getDate().toString().padStart(2, '0');
+        document.getElementById('recStartDate').value = `${year}-${month}-${day}`;
+    }
 
-            if (hourVal === "24") {
-                const parts = dateVal.split('-');
-                const baseDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0);
-                baseDate.setDate(baseDate.getDate() + 1);
-                return baseDate.toISOString();
-            }
+    document.getElementById(`${prefix}Hour`).value = hourStr;
+    document.getElementById(`${prefix}Min`).value = minStr;
+    handleHourChange(prefix);
+}
 
-            const parts = dateVal.split('-');
-            const constructed = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), parseInt(hourVal), parseInt(minVal), 0);
-            return constructed.toISOString();
-        }
+function buildISOFromFields(prefix) {
+    const dateVal = document.getElementById('recStartDate').value;
+    const hourVal = document.getElementById(`${prefix}Hour`).value;
+    const minVal = document.getElementById(`${prefix}Min`).value;
+
+    if (!dateVal) return null;
+
+    const parts = dateVal.split('-');
+    let baseDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]), 0, 0, 0);
+
+    if (prefix === 'recEnd') {
+        const offset = parseInt(document.getElementById('recEndDayOffset').value) || 0;
+        baseDate.setDate(baseDate.getDate() + offset);
+    }
+
+    if (hourVal === "24") {
+        baseDate.setDate(baseDate.getDate() + 1);
+        return baseDate.toISOString();
+    }
+
+    baseDate.setHours(parseInt(hourVal), parseInt(minVal), 0);
+    return baseDate.toISOString();
+}
 
         // ==========================================
         // FORM & RECORD CONTROLLERS
@@ -476,24 +490,33 @@
             document.getElementById('formTriggerBtn').style.display = 'none';
         }
 
-        function openEditMode(id) {
-            const rec = records.find(r => r.id === id);
-            if (!rec) return;
+function openEditMode(id) {
+    const rec = records.find(r => r.id === id);
+    if (!rec) return;
 
-            editingRecordId = id;
-            document.getElementById('recName').value = rec.name || '';
-            document.getElementById('recID').value = rec.idCode || '';
-            
-            setDateTimeFields('recStart', rec.startTime);
-            handleStartDateChange();
-            setDateTimeFields('recEnd', rec.endTime);
-            
-            document.getElementById('recMultiplier').value = rec.multiplier;
-            document.getElementById('formSubmitBtn').innerText = "Update Record";
-            document.getElementById('recordFormCard').style.display = 'block';
-            document.getElementById('formTriggerBtn').style.display = 'none';
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
+    editingRecordId = id;
+    document.getElementById('recName').value = rec.name || '';
+    document.getElementById('recID').value = rec.idCode || '';
+    
+    setDateTimeFields('recStart', rec.startTime);
+    setDateTimeFields('recEnd', rec.endTime);
+
+    // Calculate whether the end date falls on the next day relative to start date
+    if (rec.startTime && rec.endTime) {
+        const s = new Date(rec.startTime);
+        const e = new Date(rec.endTime);
+        const sDay = new Date(s.getFullYear(), s.getMonth(), s.getDate());
+        const eDay = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+        const diffDays = Math.round((eDay - sDay) / (1000 * 60 * 60 * 24));
+        document.getElementById('recEndDayOffset').value = diffDays > 0 ? "1" : "0";
+    }
+    
+    document.getElementById('recMultiplier').value = rec.multiplier;
+    document.getElementById('formSubmitBtn').innerText = "Update Record";
+    document.getElementById('recordFormCard').style.display = 'block';
+    document.getElementById('formTriggerBtn').style.display = 'none';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
 
         function closeFormDisplay() {
             document.getElementById('recordFormCard').style.display = 'none';
@@ -501,67 +524,61 @@
             editingRecordId = null;
         }
 
-        async function processFormSubmit() {
-            const name = document.getElementById('recName').value.trim();
-            const idCode = document.getElementById('recID').value.trim();
-            const startDateVal = document.getElementById('recStartDate').value;
-            const endDateVal = document.getElementById('recEndDate').value;
+async function processFormSubmit() {
+    const name = document.getElementById('recName').value.trim();
+    const idCode = document.getElementById('recID').value.trim();
+    const startDateVal = document.getElementById('recStartDate').value;
 
-            if (!startDateVal) {
-                alert("Please select Start Date.");
-                return;
-            }
+    if (!startDateVal) {
+        alert("Please select Start Date.");
+        return;
+    }
 
-            if (!endDateVal) {
-                alert("Please select End Date.");
-                return;
-            }
+    const startVal = buildISOFromFields('recStart');
+    const endVal = buildISOFromFields('recEnd');
+    const multiplier = document.getElementById('recMultiplier').value;
 
-            const startVal = buildISOFromFields('recStart');
-            const endVal = buildISOFromFields('recEnd');
-            const multiplier = document.getElementById('recMultiplier').value;
+    const startDateObj = new Date(startVal);
+    const endDateObj = new Date(endVal);
 
-            const startDateObj = new Date(startVal);
-            const endDateObj = new Date(endVal);
+    if (endDateObj <= startDateObj) {
+        alert("Time Ended must be later than Time Started.");
+        return;
+    }
 
-            if (endDateObj <= startDateObj) {
-                alert("Time Ended must be later than Time Started.");
-                return;
-            }
+    const computed = calculateOvertime(startVal, endVal, multiplier);
 
-            const computed = calculateOvertime(startVal, endVal, multiplier);
-
-            if (editingRecordId) {
-                const rec = records.find(r => r.id === editingRecordId);
-                if (rec) {
-                    rec.name = name;
-                    rec.idCode = idCode;
-                    rec.startTime = startVal;
-                    rec.endTime = endVal;
-                    rec.multiplier = multiplier;
-                    rec.hoursWorked = computed.hoursWorked;
-                    rec.hoursToPay = computed.hoursToPay;
-                }
-            } else {
-                const newRecord = {
-                    id: 'rec_' + Math.random().toString(36).substr(2, 9),
-                    name,
-                    idCode,
-                    startTime: startVal,
-                    endTime: endVal,
-                    multiplier,
-                    hoursWorked: computed.hoursWorked,
-                    hoursToPay: computed.hoursToPay,
-                    isPaid: false
-                };
-                records.push(newRecord);
-            }
-
-            saveStateToLocalStorage();
-            closeFormDisplay();
-            render();
-            await silentlyExecuteCloudSyncEngineCheck();
+    if (editingRecordId) {
+        const rec = records.find(r => r.id === editingRecordId);
+        if (rec) {
+            rec.name = name;
+            rec.idCode = idCode;
+            rec.startTime = startVal;
+            rec.endTime = endVal;
+            rec.multiplier = multiplier;
+            rec.hoursWorked = computed.hoursWorked;
+            rec.hoursToPay = computed.hoursToPay;
         }
+    } else {
+        const newRecord = {
+            id: 'rec_' + Math.random().toString(36).substr(2, 9),
+            name,
+            idCode,
+            startTime: startVal,
+            endTime: endVal,
+            multiplier,
+            hoursWorked: computed.hoursWorked,
+            hoursToPay: computed.hoursToPay,
+            isPaid: false
+        };
+        records.push(newRecord);
+    }
+
+    saveStateToLocalStorage();
+    closeFormDisplay();
+    render();
+    await silentlyExecuteCloudSyncEngineCheck();
+}
 
         async function togglePaidStatus(id) {
             const rec = records.find(r => r.id === id);
@@ -590,96 +607,97 @@
         // ==========================================
         // RENDERING ENGINE
         // ==========================================
-        function render() {
-            const container = document.getElementById('monthsContainer');
-            container.innerHTML = '';
+function render() {
+    const container = document.getElementById('monthsContainer');
+    container.innerHTML = '';
 
-            for (let m = 0; m < 12; m++) {
-                const monthRecords = records.filter(r => {
-                    if (!r.startTime) return false;
-                    const d = new Date(r.startTime);
-                    return d.getFullYear() === activeYear && d.getMonth() === m;
-                });
+    for (let m = 0; m < 12; m++) {
+        const monthRecords = records.filter(r => {
+            if (!r.startTime) return false;
+            const d = new Date(r.startTime);
+            return d.getFullYear() === activeYear && d.getMonth() === m;
+        });
 
-                let totalHours = 0;
-                let paidHours = 0;
-                let unpaidHours = 0;
+        let totalHours = 0;
+        let paidHours = 0;
+        let unpaidHours = 0;
 
-                monthRecords.forEach(r => {
-                    totalHours += r.hoursToPay;
-                    if (r.isPaid) {
-                        paidHours += r.hoursToPay;
-                    } else {
-                        unpaidHours += r.hoursToPay;
-                    }
-                });
-
-                const monthCard = document.createElement('div');
-                monthCard.className = "month-card";
-
-                const isCollapsed = collapsedMonths[m] || false;
-
-                const header = document.createElement('div');
-                header.className = "month-header";
-                header.onclick = () => toggleMonthCollapse(m);
-
-                header.innerHTML = `
-                    <div class="month-title">
-                        <span>${isCollapsed ? '▶' : '▼'}</span>
-                        <span>${MONTH_NAMES[m]}</span>
-                    </div>
-                    <div class="month-stats">
-                        <span class="stat-badge">Total: ${totalHours.toFixed(2)}h</span>
-                        <span class="stat-badge paid">Paid: ${paidHours.toFixed(2)}h</span>
-                        <span class="stat-badge unpaid">Pending: ${unpaidHours.toFixed(2)}h</span>
-                    </div>
-                `;
-
-                monthCard.appendChild(header);
-
-                if (!isCollapsed) {
-                    const list = document.createElement('div');
-                    list.className = "record-list";
-
-                    if (monthRecords.length === 0) {
-                        list.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:8px;">No records registered.</div>`;
-                    } else {
-                        monthRecords.forEach(r => {
-                            const startFormatted = formatDisplayDate(r.startTime);
-                            const endFormatted = formatDisplayDate(r.endTime);
-
-                            const item = document.createElement('div');
-                            item.className = `record-item ${r.isPaid ? 'is-paid' : ''}`;
-                            item.innerHTML = `
-                                <div class="record-top">
-                                    <div class="record-title">${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span class="record-id">(${r.name})</span>` : ''}</div>
-                                    <span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.multiplier}</span>
-                                </div>
-                                <div class="record-details">
-                                    <div>Start: <strong>${startFormatted}</strong></div>
-                                    <div>End: <strong>${endFormatted}</strong></div>
-                                    <div>Worked: <strong>${r.hoursWorked}h</strong></div>
-                                    <div>To Pay: <strong>${r.hoursToPay}h</strong></div>
-                                </div>
-                                <div class="record-actions">
-                                    <label class="checkbox-label">
-                                        <input type="checkbox" ${r.isPaid ? 'checked' : ''} onchange="togglePaidStatus('${r.id}')">
-                                        <span>Paid</span>
-                                    </label>
-                                    <div class="action-btns">
-                                        <button class="btn-icon btn-edit" onclick="openEditMode('${r.id}')">📝 Edit</button>
-                                        <button class="btn-icon btn-delete" onclick="deleteRecord('${r.id}')">✕ Delete</button>
-                                    </div>
-                                </div>
-                            `;
-                            list.appendChild(item);
-                        });
-                    }
-                    monthCard.appendChild(list);
-                }
-                container.appendChild(monthCard);
+        monthRecords.forEach(r => {
+            totalHours += r.hoursToPay;
+            if (r.isPaid) {
+                paidHours += r.hoursToPay;
+            } else {
+                unpaidHours += r.hoursToPay;
             }
+        });
+
+        // If user has not toggled this month manually, close it if pending (unpaid) hours are 0
+        const isCollapsed = collapsedMonths[m] !== undefined ? collapsedMonths[m] : (unpaidHours === 0);
+
+        const monthCard = document.createElement('div');
+        monthCard.className = "month-card";
+
+        const header = document.createElement('div');
+        header.className = "month-header";
+        header.onclick = () => toggleMonthCollapse(m);
+
+        header.innerHTML = `
+            <div class="month-title">
+                <span>${isCollapsed ? '▶' : '▼'}</span>
+                <span>${MONTH_NAMES[m]}</span>
+            </div>
+            <div class="month-stats">
+                <span class="stat-badge">Total: ${totalHours.toFixed(2)}h</span>
+                <span class="stat-badge paid">Paid: ${paidHours.toFixed(2)}h</span>
+                <span class="stat-badge unpaid">Pending: ${unpaidHours.toFixed(2)}h</span>
+            </div>
+        `;
+
+        monthCard.appendChild(header);
+
+        if (!isCollapsed) {
+            const list = document.createElement('div');
+            list.className = "record-list";
+
+            if (monthRecords.length === 0) {
+                list.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:8px;">No records registered.</div>`;
+            } else {
+                monthRecords.forEach(r => {
+                    const startFormatted = formatDisplayDate(r.startTime);
+                    const endFormatted = formatDisplayDate(r.endTime);
+
+                    const item = document.createElement('div');
+                    item.className = `record-item ${r.isPaid ? 'is-paid' : ''}`;
+                    item.innerHTML = `
+                        <div class="record-top">
+                            <div class="record-title">${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span class="record-id">(${r.name})</span>` : ''}</div>
+                            <span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.multiplier}</span>
+                        </div>
+                        <div class="record-details">
+                            <div>Start: <strong>${startFormatted}</strong></div>
+                            <div>End: <strong>${endFormatted}</strong></div>
+                            <div>Worked: <strong>${r.hoursWorked}h</strong></div>
+                            <div>To Pay: <strong>${r.hoursToPay}h</strong></div>
+                        </div>
+                        <div class="record-actions">
+                            <label class="checkbox-label">
+                                <input type="checkbox" ${r.isPaid ? 'checked' : ''} onchange="togglePaidStatus('${r.id}')">
+                                <span>Paid</span>
+                            </label>
+                            <div class="action-btns">
+                                <button class="btn-icon btn-edit" onclick="openEditMode('${r.id}')">📝 Edit</button>
+                                <button class="btn-icon btn-delete" onclick="deleteRecord('${r.id}')">✕ Delete</button>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+            }
+            monthCard.appendChild(list);
         }
+        container.appendChild(monthCard);
+    }
+}
 
         // ==========================================
         // GOOGLE DRIVE SYNC ARCHITECTURE
@@ -1326,6 +1344,6 @@
         }
 
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.5</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.6</div>
 </body>
 </html>
