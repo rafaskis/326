@@ -166,7 +166,7 @@
         <div class="cloud-status-text" id="cloudStatusLabel">☁ Cloud Offline</div>
         <div class="discreet-actions-grid">
             <button class="btn-cloud-discreet btn-cloud-signin" id="authMainBtn" onclick="handleAuthActionClick()">Sign In</button>
-            <button class="btn-cloud-discreet btn-cloud-signout hidden" id="changePasswordBtn" onclick="openPasswordModal()">Password</button>
+            <button class="btn-cloud-discreet btn-cloud-signout hidden" id="changePasswordBtn" onclick="openPasswordModal()">Change Password</button>
             <button class="btn-cloud-discreet btn-cloud-push" onclick="manuallyTriggerCloudBackup()">Backup</button>
             <button class="btn-cloud-discreet btn-cloud-pull" onclick="manuallyTriggerCloudRestore()">Restore</button>
         </div>
@@ -344,7 +344,11 @@
             const pad = (n) => String(n).padStart(2, '0');
             const liveDateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
             const liveTimeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-            const asOfTimestampString = `as of ${liveDateStr} ${liveTimeStr}`;
+            
+            const activeUsername = activeUserSession && activeUserSession.user && activeUserSession.user.email 
+                ? activeUserSession.user.email.replace(FAKE_EMAIL_DOMAIN, '') 
+                : 'User';
+            const asOfTimestampString = `for ${activeUsername} as of ${liveDateStr} ${liveTimeStr}`;
 
             const timestamp = `${String(now.getFullYear()).slice(-2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
             const originalTitle = document.title;
@@ -1099,7 +1103,7 @@
         }
 
         async function fetchCloudDatabase() {
-            if (!activeUserSession) return null;
+            if (!activeUserSession || !activeUserSession.user) return null;
 
             const { data, error } = await supabaseClient
                 .from('expenses')
@@ -1107,7 +1111,10 @@
                 .eq('user_id', activeUserSession.user.id)
                 .maybeSingle();
 
-            if (error) throw error;
+            if (error) {
+                console.error('Fetch error:', error);
+                throw error;
+            }
             return data ? data.data : null;
         }
 
@@ -1129,6 +1136,7 @@
                     await performCloudWriteExecutionSequence();
                 }
             } catch (err) {
+                console.error('Sync check failed:', err);
                 setCloudStatus('☁ Sync Failure');
             }
         }
@@ -1221,7 +1229,7 @@
                 const o = document.getElementById('customChoiceOverlay');
                 const t = document.getElementById('choiceOverlayMessage');
                 const b = document.getElementById('choiceButtonsContainer');
-                t.innerHTML = '<strong>Sign Out</strong><br><br>Disconnect this session from Supabase?';
+                t.innerHTML = '<strong>Sign Out</strong><br><br>Are you sure you want to sign out?';
                 b.className = 'choice-buttons-row';
                 b.innerHTML = '<button class="btn-choice btn-choice-left" id="signoutCancel">Cancel</button><button class="btn-choice btn-choice-danger" id="signoutProceed">Sign Out</button>';
                 const c = document.getElementById('signoutCancel');
@@ -1288,7 +1296,7 @@
         }
 
         async function performCloudWriteExecutionSequence() {
-            if (!activeUserSession) return;
+            if (!activeUserSession || !activeUserSession.user) return;
 
             setCloudStatus('☁ Uploading...');
 
@@ -1376,6 +1384,6 @@
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4.1</div>
 </body>
 </html>
