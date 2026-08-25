@@ -621,7 +621,7 @@ function calculateOvertime(startDt, endDt, multiplier) {
                     if (!r.startTime) return false;
                     const d = new Date(r.startTime);
                     return d.getFullYear() === activeYear && d.getMonth() === m;
-                });
+                }).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
 
                 let totalHours = 0;
                 let paidHours = 0;
@@ -758,16 +758,7 @@ function calculateOvertime(startDt, endDt, multiplier) {
                     }
                 }
             });
-
-            const savedToken = localStorage.getItem('gdrive_access_token');
-            if (savedToken) {
-                activeAccessToken = savedToken;
-                isCloudSyncPending = true;
-                evaluateSignActionBtnVisualState();
-                silentlyExecuteCloudSyncEngineCheck();
-            } else {
-                evaluateSignActionBtnVisualState();
-            }
+            evaluateSignActionBtnVisualState();
         }
 
         function evaluateSignActionBtnVisualState() {
@@ -1183,6 +1174,6 @@ function calculateOvertime(startDt, endDt, multiplier) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.7.1</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.7.2</div>
 </body>
 </html>
