@@ -390,21 +390,22 @@ function calculateOvertime(startDt, endDt, multiplier) {
             } else {
                 hoursToPay += stepHours * 1.5;
             }
-        } else if (multiplier === 'ΓΡΑΦΕΙΑΚΟ') {
-            if (isSundayOrHoliday) {
-                hoursToPay += stepHours * 2.0;
-            } else if (day === 6) {
-                if (hour < 13) {
-                    hoursToPay += stepHours * 1.5;
-                } else {
-                    hoursToPay += stepHours * 2.0;
-                }
-            } else {
-                if (hour >= 17) {
-                    hoursToPay += stepHours * 1.5;
-                }
-            }
+} else if (multiplier === 'ΓΡΑΦΕΙΑΚΟ') {
+    if (isSundayOrHoliday) {
+        hoursToPay += stepHours * 2.0;
+    } else if (day === 6) { // Saturday
+        if (hour < 13) {
+            hoursToPay += stepHours * 1.5;
+        } else {
+            hoursToPay += stepHours * 2.0;
         }
+    } else { // Monday – Friday
+        // 00:00 to 07:00 (hour < 7) and 17:00 onwards (hour >= 17) paid at 1.5x
+        if (hour < 7 || hour >= 17) {
+            hoursToPay += stepHours * 1.5;
+        }
+    }
+}
         current = new Date(current.getTime() + stepMs);
     }
 
@@ -1182,6 +1183,6 @@ function calculateOvertime(startDt, endDt, multiplier) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.6.2</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.7.1</div>
 </body>
 </html>
