@@ -5,7 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Overtime Tracker</title>
     <script src="config.js"></script>
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <!-- Supabase JS SDK CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         :root {
             --bg-color: #f4f6f9;
@@ -19,7 +20,6 @@
             --utility: #4b5563;
             --edit-color: #0284c7;
             --group-header-bg: #e2e8f0;
-            --gdrive-color: #0f9d58;
             --cloud-bar-bg: #e2e8f0;
             --cloud-bar-text: #475569;
             --cloud-bar-border: #cbd5e1;
@@ -47,29 +47,29 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         body { background-color: var(--bg-color); color: var(--text-main); padding: 16px; padding-bottom: 60px; min-height: 100vh; transition: background-color 0.2s, color 0.2s; }
         
-.top-cloud-bar { 
-    display: flex; 
-    justify-content: space-between; 
-    align-items: center; 
-    gap: 12px; 
-    margin-bottom: 16px; 
-    flex-wrap: wrap; 
-}
+        .top-cloud-bar { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            gap: 12px; 
+            margin-bottom: 16px; 
+            flex-wrap: wrap; 
+        }
         .control-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    background: var(--cloud-bar-bg);
-    padding: 8px 12px;
-    border-radius: 10px;
-    border: 1px dashed var(--cloud-bar-border);
-    flex-wrap: wrap;
-}
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--cloud-bar-bg);
+            padding: 8px 12px;
+            border-radius: 10px;
+            border: 1px dashed var(--cloud-bar-border);
+            flex-wrap: wrap;
+        }
         .cloud-status-text { font-weight: 600; color: var(--cloud-bar-text); display: flex; align-items: center; gap: 4px; }
         .discreet-actions-grid { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
         
         .btn-cloud-discreet { padding: 6px 12px; font-size: 12px; font-weight: bold; border-radius: 6px; border: none; cursor: pointer; color: white; display: inline-flex; align-items: center; gap: 4px; }
-        .btn-cloud-signin { background: var(--gdrive-color); }
+        .btn-cloud-signin { background: var(--primary); }
         .btn-cloud-signout { background: var(--utility); }
         .btn-cloud-push { background: #4285f4; }
         .btn-cloud-pull { background: #16a34a; }
@@ -95,7 +95,6 @@
         .datetime-picker-row { display: grid; grid-template-columns: 1.6fr 1fr 1fr; gap: 6px; align-items: center; }
         .datetime-picker-row select, .datetime-picker-row input[type="date"] { padding: 8px 6px; font-size: 13px; }
 
-        /* Radio buttons styling for Day Offset */
         .radio-group-row { display: flex; gap: 16px; align-items: center; padding: 4px 0; }
         .radio-label { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; }
         .radio-label input[type="radio"] { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary); }
@@ -141,6 +140,7 @@
         .btn-choice-danger { background:var(--danger); color:white; }
         .btn-choice-full { width:100%; margin-bottom:8px; }
         .vertical-buttons { flex-direction:column; gap:4px; width:100%; display:flex; }
+        
         .utility-toggle-header { display:flex; align-items:center; justify-content:center; gap:6px; margin-top:28px; color:var(--utility); font-size:14px; font-weight:600; cursor:pointer; user-select:none; padding:8px; }
         .utility-arrow { font-size:11px; transition:transform .2s ease; }
         .utility-card { background:var(--bg-color); padding:16px; border-radius:12px; border:1px dashed var(--utility); margin-top:8px; display:none; }
@@ -151,6 +151,11 @@
         .file-input-wrapper { position:relative; width:100%; }
         .file-input-wrapper input[type=file] { position:absolute; left:0; top:0; opacity:0; width:100%; height:100%; cursor:pointer; }
         .btn-fake-file { background:var(--card-bg); color:var(--text-main); border:1px solid var(--border); font-size:14px; }
+
+        /* Auth Modals */
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 3000; }
+        .modal-content { background: var(--card-bg); padding: 24px; border-radius: 12px; width: 100%; max-width: 400px; border: 1px solid var(--border); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+        .hidden { display: none !important; }
     </style>
 </head>
 <body>
@@ -160,7 +165,8 @@
     <div class="control-group">
         <div class="cloud-status-text" id="cloudStatusLabel">☁ Cloud Offline</div>
         <div class="discreet-actions-grid">
-            <button class="btn-cloud-discreet btn-cloud-signin" id="gdriveMainActionBtn" onclick="toggleGoogleDriveConnectionState()">Sign In</button>
+            <button class="btn-cloud-discreet btn-cloud-signin" id="authMainBtn" onclick="handleAuthActionClick()">Sign In</button>
+            <button class="btn-cloud-discreet btn-cloud-signout hidden" id="changePasswordBtn" onclick="openPasswordModal()">Password</button>
             <button class="btn-cloud-discreet btn-cloud-push" onclick="manuallyTriggerCloudBackup()">Backup</button>
             <button class="btn-cloud-discreet btn-cloud-pull" onclick="manuallyTriggerCloudRestore()">Restore</button>
         </div>
@@ -260,12 +266,64 @@
         <div class="utility-title" style="border-top:1px dashed var(--border);padding-top:12px;color:var(--danger);">Danger Zone</div>
         <button class="btn-util btn-util-danger" onclick="triggerResetToScratch()">☢ Start From Scratch</button>
     </div>
-    <div class="choice-overlay" id="customChoiceOverlay"><div class="choice-card"><div class="choice-message" id="choiceOverlayMessage">Database Synchronization</div><div class="choice-buttons-row" id="choiceButtonsContainer"><button class="btn-choice btn-choice-left" id="choiceLeftActionBtn">Current</button><button class="btn-choice btn-choice-right" id="choiceRightActionBtn">All</button></div></div></div>
+
+    <div class="choice-overlay" id="customChoiceOverlay">
+        <div class="choice-card">
+            <div class="choice-message" id="choiceOverlayMessage">Database Synchronization</div>
+            <div class="choice-buttons-row" id="choiceButtonsContainer">
+                <button class="btn-choice btn-choice-left" id="choiceLeftActionBtn">Current</button>
+                <button class="btn-choice btn-choice-right" id="choiceRightActionBtn">All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="loginModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 16px;">Sign In to Supabase</h3>
+            <form onsubmit="executeUserSignIn(event)">
+                <div class="form-group" style="margin-bottom: 12px;">
+                    <label for="loginUsername">Username</label>
+                    <input type="text" id="loginUsername" required placeholder="Enter username">
+                </div>
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="loginPassword">Password</label>
+                    <input type="password" id="loginPassword" required placeholder="Enter password">
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button type="button" class="btn-cancel-form" style="width: auto; margin: 0;" onclick="closeLoginModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" style="width: auto; margin: 0;">Log In</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Password Change Modal -->
+    <div id="passwordModal" class="modal hidden">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 16px;">Change Password</h3>
+            <form onsubmit="executePasswordChange(event)">
+                <div class="form-group" style="margin-bottom: 16px;">
+                    <label for="newPasswordInput">New Password</label>
+                    <input type="password" id="newPasswordInput" required minlength="6" placeholder="At least 6 characters">
+                </div>
+                <div style="display: flex; gap: 8px; justify-content: flex-end;">
+                    <button type="button" class="btn-cancel-form" style="width: auto; margin: 0;" onclick="closePasswordModal()">Cancel</button>
+                    <button type="submit" class="btn-primary" style="width: auto; margin: 0;">Update Password</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
     <script>
-        const GOOGLE_CLIENT_ID = '610766342355-plf8p3rbn5d74dt7g643s6ndq12nestd.apps.googleusercontent.com';
-        const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
-        const DEDICATED_FILE_NAME = 'overtime_database.json';
+        // -------------------------------------------------------------
+        // SUPABASE & GLOBAL CONFIGURATION
+        // -------------------------------------------------------------
+        const SUPABASE_URL = 'https://eieqvnvexwsaqaairoam.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_PF9DyXMRIUfO3htpUg0IQQ_Vh2S1mCG';
+        const FAKE_EMAIL_DOMAIN = '@326.overtime';
+
+        const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
         const MONTH_NAMES = [
             "Ιανουάριος", "Φεβρουάριος", "Μάρτιος", 
@@ -279,237 +337,228 @@
         let activeYear = new Date().getFullYear();
         let editingRecordId = null;
         let collapsedMonths = {};
-
-        let tokenClient = null;
-        let activeAccessToken = null;
-        let gdriveFileId = null;
-        let isCloudSyncPending = false;
+        let activeUserSession = null;
 
         function exportToPDF() {
-    // 1. Build timestamp metadata
-    const now = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    const liveDateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
-    const liveTimeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-    const asOfTimestampString = `as of ${liveDateStr} ${liveTimeStr}`;
+            const now = new Date();
+            const pad = (n) => String(n).padStart(2, '0');
+            const liveDateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+            const liveTimeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+            const asOfTimestampString = `as of ${liveDateStr} ${liveTimeStr}`;
 
-    const timestamp = `${String(now.getFullYear()).slice(-2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-    const originalTitle = document.title;
-    document.title = `overtime_report_${activeYear}-${timestamp}`;
+            const timestamp = `${String(now.getFullYear()).slice(-2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+            const originalTitle = document.title;
+            document.title = `overtime_report_${activeYear}-${timestamp}`;
 
-    // 2. Compute Annual Aggregates
-    const yearRecords = records.filter(r => {
-        if (!r.startTime) return false;
-        return new Date(r.startTime).getFullYear() === activeYear;
-    });
-
-    let annualTotalWorked = 0;
-    let annualTotalToPay = 0;
-    let annualPaidToPay = 0;
-    let annualUnpaidToPay = 0;
-
-    yearRecords.forEach(r => {
-        annualTotalWorked += (r.hoursWorked || 0);
-        annualTotalToPay += (r.hoursToPay || 0);
-        if (r.isPaid) {
-            annualPaidToPay += (r.hoursToPay || 0);
-        } else {
-            annualUnpaidToPay += (r.hoursToPay || 0);
-        }
-    });
-
-    // 3. Construct Detailed Monthly Markup
-    let reportContentHtml = '';
-
-    if (yearRecords.length === 0) {
-        reportContentHtml = '<p style="text-align: center; color: #666; font-size: 14px; margin-top: 30px;">No overtime records logged for this year.</p>';
-    } else {
-        for (let m = 0; m < 12; m++) {
-            const monthRecords = records.filter(r => {
+            const yearRecords = records.filter(r => {
                 if (!r.startTime) return false;
-                const d = new Date(r.startTime);
-                return d.getFullYear() === activeYear && d.getMonth() === m;
-            }).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
-            if (monthRecords.length === 0) continue;
-
-            let monthWorked = 0;
-            let monthToPay = 0;
-            let monthPaid = 0;
-            let monthUnpaid = 0;
-
-            monthRecords.forEach(r => {
-                monthWorked += (r.hoursWorked || 0);
-                monthToPay += (r.hoursToPay || 0);
-                if (r.isPaid) monthPaid += (r.hoursToPay || 0);
-                else monthUnpaid += (r.hoursToPay || 0);
+                return new Date(r.startTime).getFullYear() === activeYear;
             });
 
-            reportContentHtml += `
-                <div style="margin-bottom: 22px; page-break-inside: avoid; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #ffffff;">
-                    <div style="background: #e2e8f0; padding: 10px 15px; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1;">
-                        <span style="color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">${MONTH_NAMES[m]}</span>
-                        <div style="font-size: 12px; display: flex; gap: 8px;">
-                            <span style="background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">Total: ${monthToPay.toFixed(2)}h</span>
-                            <span style="background: #dcfce7; color: #16a34a; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">Paid: ${monthPaid.toFixed(2)}h</span>
-                            <span style="background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecaca;">Pending: ${monthUnpaid.toFixed(2)}h</span>
-                        </div>
-                    </div>
-                    <div>
-            `;
+            let annualTotalWorked = 0;
+            let annualTotalToPay = 0;
+            let annualPaidToPay = 0;
+            let annualUnpaidToPay = 0;
 
-            monthRecords.forEach(r => {
-                const startFormatted = formatDisplayDate(r.startTime);
-                const endFormatted = formatDisplayDate(r.endTime);
-                const statusColor = r.isPaid ? '#16a34a' : '#dc2626';
-
-                reportContentHtml += `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #e5e7eb; font-size: 13px;">
-                        <div>
-                            <div style="font-weight: 700; color: #111827;">
-                                ${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span style="font-weight: normal; color: #6b7280;">(${r.name})</span>` : ''}
-                                <span style="font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; margin-left: 6px;">${r.multiplier}</span>
-                            </div>
-                            <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
-                                ${startFormatted} &ndash; ${endFormatted}
-                            </div>
-                        </div>
-                        <div style="text-align: right;">
-                            <div style="font-weight: 700; color: ${statusColor};">
-                                ${r.hoursToPay.toFixed(2)}h To Pay
-                            </div>
-                            <div style="font-size: 11px; color: #6b7280;">
-                                Worked: ${r.hoursWorked.toFixed(2)}h | <span style="font-weight: 600; color: ${statusColor};">${r.isPaid ? 'PAID' : 'PENDING'}</span>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            });
-
-            reportContentHtml += `</div></div>`;
-        }
-    }
-
-    // 4. Open isolated popup window
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-        alert("Please allow popups to export PDFs.");
-        document.title = originalTitle;
-        return;
-    }
-
-    // 5. Inject complete document stream
-    printWindow.document.write(`
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>${document.title}</title>
-            <style>
-                body {
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                    color: #111827;
-                    background: #ffffff;
-                    padding: 20px;
-                    max-width: 700px;
-                    margin: 0 auto;
-                    -webkit-print-color-adjust: exact !important;
-                    print-color-adjust: exact !important;
-                }
-                .report-header-container {
-                    border-bottom: 2px solid #e5e7eb;
-                    padding-bottom: 14px;
-                    margin-bottom: 20px;
-                    text-align: center;
-                }
-                .report-title-main {
-                    margin: 0;
-                    font-size: 24px;
-                    font-weight: 800;
-                    color: #111827;
-                }
-                .report-subtitle-period {
-                    margin: 4px 0 0 0;
-                    font-size: 18px;
-                    font-weight: 600;
-                    color: #4b5563;
-                }
-                .summary-grid-layout {
-                    display: grid;
-                    grid-template-columns: repeat(3, 1fr);
-                    gap: 12px;
-                    margin-bottom: 25px;
-                }
-                .summary-card-box {
-                    border: 1px solid #e5e7eb;
-                    padding: 12px;
-                    border-radius: 8px;
-                    text-align: center;
-                    background: #f9fafb;
-                }
-                .summary-card-label {
-                    font-size: 10px;
-                    color: #6b7280;
-                    text-transform: uppercase;
-                    font-weight: 700;
-                    letter-spacing: 0.5px;
-                    margin-bottom: 4px;
-                    display: block;
-                }
-                .summary-card-value {
-                    font-size: 18px;
-                    font-weight: 800;
-                    color: #111827;
-                }
-            </style>
-        </head>
-        <body>
-            <div class="report-header-container">
-                <h2 class="report-title-main">Overtime Summary Report</h2>
-                <div class="report-subtitle-period">Year ${activeYear}</div>
-                <div style="font-size: 13px; color: #6b7280; font-weight: 500; margin-top: 4px;">${asOfTimestampString}</div>
-            </div>
-            
-            <div class="summary-grid-layout">
-                <div class="summary-card-box">
-                    <span class="summary-card-label">Total Payable Hours</span>
-                    <span class="summary-card-value">${annualTotalToPay.toFixed(2)}h</span>
-                </div>
-                <div class="summary-card-box">
-                    <span class="summary-card-label">Paid Hours</span>
-                    <span class="summary-card-value" style="color: #16a34a;">${annualPaidToPay.toFixed(2)}h</span>
-                </div>
-                <div class="summary-card-box">
-                    <span class="summary-card-label">Pending Hours</span>
-                    <span class="summary-card-value" style="color: #dc2626;">${annualUnpaidToPay.toFixed(2)}h</span>
-                </div>
-            </div>
-
-            <div class="report-list-wrapper">
-                ${reportContentHtml}
-            </div>
-
-            <script>
-                function executeSecurePrintProcess() {
-                    setTimeout(function() {
-                        window.print();
-                    }, 300);
-                }
-                if (document.readyState === 'complete') {
-                    executeSecurePrintProcess();
+            yearRecords.forEach(r => {
+                annualTotalWorked += (r.hoursWorked || 0);
+                annualTotalToPay += (r.hoursToPay || 0);
+                if (r.isPaid) {
+                    annualPaidToPay += (r.hoursToPay || 0);
                 } else {
-                    window.addEventListener('load', executeSecurePrintProcess);
+                    annualUnpaidToPay += (r.hoursToPay || 0);
                 }
-            <\/script>
-        </body>
-        </html>
-    `);
+            });
 
-    printWindow.document.close();
-    
-    setTimeout(() => {
-        document.title = originalTitle;
-    }, 1000);
-}
+            let reportContentHtml = '';
+
+            if (yearRecords.length === 0) {
+                reportContentHtml = '<p style="text-align: center; color: #666; font-size: 14px; margin-top: 30px;">No overtime records logged for this year.</p>';
+            } else {
+                for (let m = 0; m < 12; m++) {
+                    const monthRecords = records.filter(r => {
+                        if (!r.startTime) return false;
+                        const d = new Date(r.startTime);
+                        return d.getFullYear() === activeYear && d.getMonth() === m;
+                    }).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+                    if (monthRecords.length === 0) continue;
+
+                    let monthWorked = 0;
+                    let monthToPay = 0;
+                    let monthPaid = 0;
+                    let monthUnpaid = 0;
+
+                    monthRecords.forEach(r => {
+                        monthWorked += (r.hoursWorked || 0);
+                        monthToPay += (r.hoursToPay || 0);
+                        if (r.isPaid) monthPaid += (r.hoursToPay || 0);
+                        else monthUnpaid += (r.hoursToPay || 0);
+                    });
+
+                    reportContentHtml += `
+                        <div style="margin-bottom: 22px; page-break-inside: avoid; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #ffffff;">
+                            <div style="background: #e2e8f0; padding: 10px 15px; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1;">
+                                <span style="color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">${MONTH_NAMES[m]}</span>
+                                <div style="font-size: 12px; display: flex; gap: 8px;">
+                                    <span style="background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">Total: ${monthToPay.toFixed(2)}h</span>
+                                    <span style="background: #dcfce7; color: #16a34a; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">Paid: ${monthPaid.toFixed(2)}h</span>
+                                    <span style="background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecaca;">Pending: ${monthUnpaid.toFixed(2)}h</span>
+                                </div>
+                            </div>
+                            <div>
+                    `;
+
+                    monthRecords.forEach(r => {
+                        const startFormatted = formatDisplayDate(r.startTime);
+                        const endFormatted = formatDisplayDate(r.endTime);
+                        const statusColor = r.isPaid ? '#16a34a' : '#dc2626';
+
+                        reportContentHtml += `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #e5e7eb; font-size: 13px;">
+                                <div>
+                                    <div style="font-weight: 700; color: #111827;">
+                                        ${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span style="font-weight: normal; color: #6b7280;">(${r.name})</span>` : ''}
+                                        <span style="font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; margin-left: 6px;">${r.multiplier}</span>
+                                    </div>
+                                    <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
+                                        ${startFormatted} &ndash; ${endFormatted}
+                                    </div>
+                                </div>
+                                <div style="text-align: right;">
+                                    <div style="font-weight: 700; color: ${statusColor};">
+                                        ${r.hoursToPay.toFixed(2)}h To Pay
+                                    </div>
+                                    <div style="font-size: 11px; color: #6b7280;">
+                                        Worked: ${r.hoursWorked.toFixed(2)}h | <span style="font-weight: 600; color: ${statusColor};">${r.isPaid ? 'PAID' : 'PENDING'}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    reportContentHtml += `</div></div>`;
+                }
+            }
+
+            const printWindow = window.open('', '_blank');
+            if (!printWindow) {
+                alert("Please allow popups to export PDFs.");
+                document.title = originalTitle;
+                return;
+            }
+
+            printWindow.document.write(`
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>${document.title}</title>
+                    <style>
+                        body {
+                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                            color: #111827;
+                            background: #ffffff;
+                            padding: 20px;
+                            max-width: 700px;
+                            margin: 0 auto;
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                        }
+                        .report-header-container {
+                            border-bottom: 2px solid #e5e7eb;
+                            padding-bottom: 14px;
+                            margin-bottom: 20px;
+                            text-align: center;
+                        }
+                        .report-title-main {
+                            margin: 0;
+                            font-size: 24px;
+                            font-weight: 800;
+                            color: #111827;
+                        }
+                        .report-subtitle-period {
+                            margin: 4px 0 0 0;
+                            font-size: 18px;
+                            font-weight: 600;
+                            color: #4b5563;
+                        }
+                        .summary-grid-layout {
+                            display: grid;
+                            grid-template-columns: repeat(3, 1fr);
+                            gap: 12px;
+                            margin-bottom: 25px;
+                        }
+                        .summary-card-box {
+                            border: 1px solid #e5e7eb;
+                            padding: 12px;
+                            border-radius: 8px;
+                            text-align: center;
+                            background: #f9fafb;
+                        }
+                        .summary-card-label {
+                            font-size: 10px;
+                            color: #6b7280;
+                            text-transform: uppercase;
+                            font-weight: 700;
+                            letter-spacing: 0.5px;
+                            margin-bottom: 4px;
+                            display: block;
+                        }
+                        .summary-card-value {
+                            font-size: 18px;
+                            font-weight: 800;
+                            color: #111827;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="report-header-container">
+                        <h2 class="report-title-main">Overtime Summary Report</h2>
+                        <div class="report-subtitle-period">Year ${activeYear}</div>
+                        <div style="font-size: 13px; color: #6b7280; font-weight: 500; margin-top: 4px;">${asOfTimestampString}</div>
+                    </div>
+                    
+                    <div class="summary-grid-layout">
+                        <div class="summary-card-box">
+                            <span class="summary-card-label">Total Payable Hours</span>
+                            <span class="summary-card-value">${annualTotalToPay.toFixed(2)}h</span>
+                        </div>
+                        <div class="summary-card-box">
+                            <span class="summary-card-label">Paid Hours</span>
+                            <span class="summary-card-value" style="color: #16a34a;">${annualPaidToPay.toFixed(2)}h</span>
+                        </div>
+                        <div class="summary-card-box">
+                            <span class="summary-card-label">Pending Hours</span>
+                            <span class="summary-card-value" style="color: #dc2626;">${annualUnpaidToPay.toFixed(2)}h</span>
+                        </div>
+                    </div>
+
+                    <div class="report-list-wrapper">
+                        ${reportContentHtml}
+                    </div>
+
+                    <script>
+                        function executeSecurePrintProcess() {
+                            setTimeout(function() {
+                                window.print();
+                            }, 300);
+                        }
+                        if (document.readyState === 'complete') {
+                            executeSecurePrintProcess();
+                        } else {
+                            window.addEventListener('load', executeSecurePrintProcess);
+                        }
+                    <\/script>
+                </body>
+                </html>
+            `);
+
+            printWindow.document.close();
+            
+            setTimeout(() => {
+                document.title = originalTitle;
+            }, 1000);
+        }
 
         function populateHourOptions() {
             const startHourSelect = document.getElementById('recStartHour');
@@ -552,10 +601,9 @@
         }
 
         window.onload = function() {
-// Only set default on initial page load if not already set
-    if (!activeYear) {
-        activeYear = new Date().getFullYear(); 
-    }
+            if (!activeYear) {
+                activeYear = new Date().getFullYear(); 
+            }
             populateHourOptions();
             initializeSavedDisplayTheme();
             loadLocalStorageCache();
@@ -563,7 +611,7 @@
             document.getElementById('yearDisplay').innerText = activeYear;
             document.getElementById('defaultMultiplierSelect').value = meta.defaultMultiplier;
             render();
-            initializeGoogleIdentityServiceServices();
+            initializeSupabaseAuth();
         };
 
         function loadLocalStorageCache() {
@@ -574,7 +622,6 @@
         }
 
         function saveStateToLocalStorage() {
-            if (isCloudSyncPending) return;
             meta.lastUpdated = Date.now();
             localStorage.setItem('ot_records', JSON.stringify(records));
             localStorage.setItem('ot_meta', JSON.stringify(meta));
@@ -586,15 +633,15 @@
             silentlyExecuteCloudSyncEngineCheck();
         }
 
-function changeYear(delta) {
-    const targetYear = activeYear + delta;
-    if (targetYear < MIN_ALLOWED_YEAR || targetYear > MAX_ALLOWED_YEAR) {
-        return; // Prevent navigating outside the defined range
-    }
-    activeYear = targetYear;
-    document.getElementById('yearDisplay').innerText = activeYear;
-    render();
-}
+        function changeYear(delta) {
+            const targetYear = activeYear + delta;
+            if (typeof MIN_ALLOWED_YEAR !== 'undefined' && targetYear < MIN_ALLOWED_YEAR) return;
+            if (typeof MAX_ALLOWED_YEAR !== 'undefined' && targetYear > MAX_ALLOWED_YEAR) return;
+
+            activeYear = targetYear;
+            document.getElementById('yearDisplay').innerText = activeYear;
+            render();
+        }
 
         function formatDisplayDate(isoString) {
             if (!isoString) return '';
@@ -608,66 +655,63 @@ function changeYear(delta) {
             return `${day}/${month}/${year} ${hours}:${minutes}`;
         }
 
-function calculateOvertime(startDt, endDt, multiplier) {
-    let start = new Date(startDt);
-    let end = new Date(endDt);
+        function calculateOvertime(startDt, endDt, multiplier) {
+            let start = new Date(startDt);
+            let end = new Date(endDt);
 
-    if (isNaN(start) || isNaN(end) || end <= start) {
-        return { hoursWorked: 0, hoursToPay: 0 };
-    }
-
-    let totalWorkedMs = end - start;
-    let hoursWorked = totalWorkedMs / (1000 * 60 * 60);
-
-    let hoursToPay = 0;
-    let current = new Date(start);
-
-    const stepMs = 15 * 60 * 1000;
-    const stepHours = 0.25;
-
-    while (current < end) {
-        let day = current.getDay();
-        let hour = current.getHours() + (current.getMinutes() / 60);
-
-        // Format current date step as YYYY-MM-DD
-        const yyyy = current.getFullYear();
-        const mm = String(current.getMonth() + 1).padStart(2, '0');
-        const dd = String(current.getDate()).padStart(2, '0');
-        const dateStr = `${yyyy}-${mm}-${dd}`;
-
-        // Check if the date is a Sunday or listed in HOLIDAYS
-        const isSundayOrHoliday = (day === 0) || (typeof HOLIDAYS !== 'undefined' && HOLIDAYS.includes(dateStr));
-
-        if (multiplier === 'ΒΑΡΔΙΑ') {
-            if (isSundayOrHoliday) {
-                hoursToPay += stepHours * 1.8;
-            } else {
-                hoursToPay += stepHours * 1.5;
+            if (isNaN(start) || isNaN(end) || end <= start) {
+                return { hoursWorked: 0, hoursToPay: 0 };
             }
-} else if (multiplier === 'ΓΡΑΦΕΙΑΚΟ') {
-    if (isSundayOrHoliday) {
-        hoursToPay += stepHours * 2.0;
-    } else if (day === 6) { // Saturday
-        if (hour < 13) {
-            hoursToPay += stepHours * 1.5;
-        } else {
-            hoursToPay += stepHours * 2.0;
-        }
-    } else { // Monday – Friday
-        // 00:00 to 07:00 (hour < 7) and 17:00 onwards (hour >= 17) paid at 1.5x
-        if (hour < 7 || hour >= 17) {
-            hoursToPay += stepHours * 1.5;
-        }
-    }
-}
-        current = new Date(current.getTime() + stepMs);
-    }
 
-    return {
-        hoursWorked: Math.round(hoursWorked * 100) / 100,
-        hoursToPay: Math.round(hoursToPay * 100) / 100
-    };
-}
+            let totalWorkedMs = end - start;
+            let hoursWorked = totalWorkedMs / (1000 * 60 * 60);
+
+            let hoursToPay = 0;
+            let current = new Date(start);
+
+            const stepMs = 15 * 60 * 1000;
+            const stepHours = 0.25;
+
+            while (current < end) {
+                let day = current.getDay();
+                let hour = current.getHours() + (current.getMinutes() / 60);
+
+                const yyyy = current.getFullYear();
+                const mm = String(current.getMonth() + 1).padStart(2, '0');
+                const dd = String(current.getDate()).padStart(2, '0');
+                const dateStr = `${yyyy}-${mm}-${dd}`;
+
+                const isSundayOrHoliday = (day === 0) || (typeof HOLIDAYS !== 'undefined' && HOLIDAYS.includes(dateStr));
+
+                if (multiplier === 'ΒΑΡΔΙΑ') {
+                    if (isSundayOrHoliday) {
+                        hoursToPay += stepHours * 1.8;
+                    } else {
+                        hoursToPay += stepHours * 1.5;
+                    }
+                } else if (multiplier === 'ΓΡΑΦΕΙΑΚΟ') {
+                    if (isSundayOrHoliday) {
+                        hoursToPay += stepHours * 2.0;
+                    } else if (day === 6) { // Saturday
+                        if (hour < 13) {
+                            hoursToPay += stepHours * 1.5;
+                        } else {
+                            hoursToPay += stepHours * 2.0;
+                        }
+                    } else { // Monday – Friday
+                        if (hour < 7 || hour >= 17) {
+                            hoursToPay += stepHours * 1.5;
+                        }
+                    }
+                }
+                current = new Date(current.getTime() + stepMs);
+            }
+
+            return {
+                hoursWorked: Math.round(hoursWorked * 100) / 100,
+                hoursToPay: Math.round(hoursToPay * 100) / 100
+            };
+        }
 
         function setDateTimeFields(prefix, isoString) {
             const now = isoString ? new Date(isoString) : new Date();
@@ -957,244 +1001,167 @@ function calculateOvertime(startDt, endDt, multiplier) {
             }
         }
 
-        let tokenRequestPromise = null;
-        let tokenRequestResolve = null;
-        let tokenRequestReject = null;
-        let tokenRecoveryInProgress = false;
-
+        // -------------------------------------------------------------
+        // SUPABASE AUTHENTICATION & SYNC MANAGEMENT
+        // -------------------------------------------------------------
         function setCloudStatus(text) {
             const el = document.getElementById('cloudStatusLabel');
             if (el) el.innerText = text;
         }
 
-        function initializeGoogleIdentityServiceServices() {
-            if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-                setCloudStatus('☁ Google Login Unavailable');
-                evaluateSignActionBtnVisualState();
-                return;
-            }
+        function initializeSupabaseAuth() {
+            supabaseClient.auth.onAuthStateChange(async (event, session) => {
+                activeUserSession = session;
+                const authBtn = document.getElementById('authMainBtn');
+                const pwdBtn = document.getElementById('changePasswordBtn');
 
-            tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
-                scope: GOOGLE_DRIVE_SCOPE,
-                callback: async (tokenResponse) => {
-                    if (tokenResponse.error) {
-                        if (tokenRequestReject) {
-                            const reject = tokenRequestReject;
-                            tokenRequestResolve = null;
-                            tokenRequestReject = null;
-                            tokenRequestPromise = null;
-                            reject(new Error(tokenResponse.error_description || tokenResponse.error));
-                        }
-                        tokenRecoveryInProgress = false;
-                        isCloudSyncPending = false;
-                        activeAccessToken = null;
-                        localStorage.removeItem('gdrive_access_token');
-                        evaluateSignActionBtnVisualState();
-                        setCloudStatus('☁ Authentication Failed');
-                        return;
+                if (session && session.user) {
+                    const rawUsername = session.user.email.replace(FAKE_EMAIL_DOMAIN, '');
+                    if (authBtn) {
+                        authBtn.innerText = `Sign Out (${rawUsername})`;
+                        authBtn.className = 'btn-cloud-discreet btn-cloud-signout';
                     }
-
-                    activeAccessToken = tokenResponse.access_token;
-                    localStorage.setItem('gdrive_access_token', activeAccessToken);
-                    evaluateSignActionBtnVisualState();
-                    tokenRecoveryInProgress = false;
-
-                    if (tokenRequestResolve) {
-                        const resolve = tokenRequestResolve;
-                        tokenRequestResolve = null;
-                        tokenRequestReject = null;
-                        tokenRequestPromise = null;
-                        resolve(activeAccessToken);
-                    } else {
-                        isCloudSyncPending = true;
-                        await lookupAndSynchronizeCloudBackupStorageState(true);
+                    if (pwdBtn) pwdBtn.classList.remove('hidden');
+                    setCloudStatus('☁ Connected');
+                    await lookupAndSynchronizeCloudBackupStorageState(true);
+                } else {
+                    if (authBtn) {
+                        authBtn.innerText = 'Sign In';
+                        authBtn.className = 'btn-cloud-discreet btn-cloud-signin';
                     }
+                    if (pwdBtn) pwdBtn.classList.add('hidden');
+                    setCloudStatus('☁ Cloud Offline');
                 }
             });
-            evaluateSignActionBtnVisualState();
         }
 
-        function evaluateSignActionBtnVisualState() {
-            const actionBtn = document.getElementById('gdriveMainActionBtn');
-            if (!actionBtn) return;
-
-            if (activeAccessToken) {
-                actionBtn.innerText = 'Sign Out';
-                actionBtn.className = 'btn-cloud-discreet btn-cloud-signout';
-                if (!tokenRecoveryInProgress && !isCloudSyncPending) setCloudStatus('☁ Connected');
-            } else {
-                actionBtn.innerText = 'Sign In';
-                actionBtn.className = 'btn-cloud-discreet btn-cloud-signin';
-                setCloudStatus('☁ Cloud Offline');
-            }
-        }
-
-        function requestFreshGoogleAccessToken() {
-            if (!tokenClient) return Promise.reject(new Error('Google Identity Services not initialized.'));
-            if (tokenRequestPromise) return tokenRequestPromise;
-
-            tokenRecoveryInProgress = true;
-            setCloudStatus('☁ Reconnecting...');
-
-            tokenRequestPromise = new Promise((resolve, reject) => {
-                tokenRequestResolve = resolve;
-                tokenRequestReject = reject;
-                try {
-                    tokenClient.requestAccessToken({ prompt: 'consent' });
-                } catch (err) {
-                    tokenRecoveryInProgress = false;
-                    tokenRequestResolve = null;
-                    tokenRequestReject = null;
-                    tokenRequestPromise = null;
-                    reject(err);
-                }
-            });
-
-            return tokenRequestPromise;
-        }
-
-        async function toggleGoogleDriveConnectionState() {
-            if (activeAccessToken) {
+        async function handleAuthActionClick() {
+            if (activeUserSession) {
                 const confirmed = await presentInteractiveSignOutConfirmation();
                 if (!confirmed) return;
-
-                activeAccessToken = null;
-                gdriveFileId = null;
-                isCloudSyncPending = false;
-                localStorage.removeItem('gdrive_access_token');
-                evaluateSignActionBtnVisualState();
+                await supabaseClient.auth.signOut();
             } else {
-                if (!tokenClient) {
-                    setCloudStatus('☁ Google Login Unavailable');
-                    return;
-                }
-                try {
-                    isCloudSyncPending = true;
-                    setCloudStatus('☁ Signing In...');
-                    await requestFreshGoogleAccessToken();
-                    await lookupAndSynchronizeCloudBackupStorageState(true);
-                } catch (err) {
-                    isCloudSyncPending = false;
-                    setCloudStatus('☁ Authentication Failed');
-                }
+                openLoginModal();
             }
         }
 
-        async function silentlyExecuteCloudSyncEngineCheck() {
-            if (!activeAccessToken) return;
-            await lookupAndSynchronizeCloudBackupStorageState(false);
+        function openLoginModal() {
+            document.getElementById('loginModal').classList.remove('hidden');
         }
 
-        async function googleDriveFetch(url, options = {}, allowAuthRecovery = true) {
-            if (!activeAccessToken) throw new Error('No Google Drive access token is available.');
+        function closeLoginModal() {
+            document.getElementById('loginModal').classList.add('hidden');
+            document.getElementById('loginPassword').value = '';
+        }
 
-            const headers = Object.assign({}, options.headers || {}, {
-                'Authorization': `Bearer ${activeAccessToken}`
+        function openPasswordModal() {
+            document.getElementById('passwordModal').classList.remove('hidden');
+        }
+
+        function closePasswordModal() {
+            document.getElementById('passwordModal').classList.add('hidden');
+            document.getElementById('newPasswordInput').value = '';
+        }
+
+        async function executeUserSignIn(e) {
+            e.preventDefault();
+            const username = document.getElementById('loginUsername').value.trim().toLowerCase();
+            const password = document.getElementById('loginPassword').value;
+
+            const syntheticEmail = `${username}${FAKE_EMAIL_DOMAIN}`;
+
+            setCloudStatus('☁ Signing In...');
+            const { data, error } = await supabaseClient.auth.signInWithPassword({
+                email: syntheticEmail,
+                password: password
             });
 
-            let response = await fetch(url, Object.assign({}, options, { headers }));
-
-            if (response.status === 401 && allowAuthRecovery) {
-                try {
-                    await requestFreshGoogleAccessToken();
-                    return await googleDriveFetch(url, options, false);
-                } catch (recoveryError) {
-                    activeAccessToken = null;
-                    gdriveFileId = null;
-                    localStorage.removeItem('gdrive_access_token');
-                    evaluateSignActionBtnVisualState();
-                    throw new Error('Google authentication expired.');
-                }
+            if (error) {
+                alert('Authentication failed: ' + error.message);
+                setCloudStatus('☁ Authentication Failed');
+            } else {
+                closeLoginModal();
             }
-
-            if (!response.ok) {
-                let errorBody = null;
-                try { errorBody = await response.json(); } catch (_) {}
-                const googleMessage = errorBody && errorBody.error ? (errorBody.error.message || JSON.stringify(errorBody.error)) : `HTTP ${response.status}`;
-                throw new Error(`Google Drive API error: ${googleMessage}`);
-            }
-
-            return response;
         }
 
-        function buildDriveFileSearchUrl() {
-            const query = encodeURIComponent(`name='${DEDICATED_FILE_NAME}' and trashed=false`);
-            return `https://www.googleapis.com/drive/v3/files?q=${query}&spaces=drive&fields=files(id,name,mimeType,modifiedTime,size)`;
+        async function executePasswordChange(e) {
+            e.preventDefault();
+            const newPassword = document.getElementById('newPasswordInput').value;
+
+            const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+
+            if (error) {
+                alert('Password update failed: ' + error.message);
+            } else {
+                alert('Password updated successfully!');
+                closePasswordModal();
+            }
         }
 
         async function fetchCloudDatabase() {
-            if (!activeAccessToken) throw new Error('No Google Drive access token.');
+            if (!activeUserSession) return null;
 
-            if (!gdriveFileId) {
-                const response = await googleDriveFetch(buildDriveFileSearchUrl());
-                const result = await response.json();
-                if (!result.files || result.files.length === 0) return null;
-                gdriveFileId = result.files[0].id;
-            }
+            const { data, error } = await supabaseClient
+                .from('expenses')
+                .select('data')
+                .eq('user_id', activeUserSession.user.id)
+                .maybeSingle();
 
-            const response = await googleDriveFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(gdriveFileId)}?alt=media`);
-            return await response.json();
+            if (error) throw error;
+            return data ? data.data : null;
+        }
+
+        async function silentlyExecuteCloudSyncEngineCheck() {
+            if (!activeUserSession) return;
+            await lookupAndSynchronizeCloudBackupStorageState(false);
         }
 
         async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
-            if (!activeAccessToken) return;
+            if (!activeUserSession) return;
 
             try {
                 setCloudStatus('☁ Checking Cloud...');
-                const response = await googleDriveFetch(buildDriveFileSearchUrl());
-                const data = await response.json();
+                const cloudDb = await fetchCloudDatabase();
 
-                if (data.files && data.files.length > 0) {
-                    gdriveFileId = data.files[0].id;
-                    await checkTimelineMetricsAgainstCloudTarget(gdriveFileId, promptUser);
+                if (cloudDb && Array.isArray(cloudDb.records)) {
+                    await checkTimelineMetricsAgainstCloudTarget(cloudDb, promptUser);
                 } else {
-                    await performCloudWriteExecutionSequence(true);
+                    await performCloudWriteExecutionSequence();
                 }
             } catch (err) {
-                isCloudSyncPending = false;
                 setCloudStatus('☁ Sync Failure');
-            } finally {
-                isCloudSyncPending = false;
             }
         }
 
-        async function checkTimelineMetricsAgainstCloudTarget(fileId, promptUser) {
-            try {
-                const response = await googleDriveFetch(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media`);
-                const cloudData = await response.json();
+        async function checkTimelineMetricsAgainstCloudTarget(cloudData, promptUser) {
+            if (!cloudData || !Array.isArray(cloudData.records)) return;
 
-                if (!cloudData || !Array.isArray(cloudData.records)) return;
+            if (!meta.lastUpdated && records.length === 0) {
+                await performCloudPullExtractionSequence(cloudData);
+                return;
+            }
 
-                if (!meta.lastUpdated && records.length === 0) {
-                    await performCloudPullExtractionSequence(cloudData);
-                    return;
+            const localStamp = meta.lastUpdated || 0;
+            const cloudStamp = cloudData.meta ? cloudData.meta.lastUpdated || 0 : 0;
+            const localDateStr = localStamp ? new Date(localStamp).toLocaleString() : 'Never';
+            const cloudDateStr = cloudStamp ? new Date(cloudStamp).toLocaleString() : 'Never';
+
+            if (localStamp === cloudStamp) {
+                setCloudStatus('☁ Cloud Synced');
+            } else if (cloudStamp > localStamp) {
+                setCloudStatus('☁ Update Available');
+                if (promptUser) {
+                    const decision = await presentCloudSyncCrossroadsPrompt('cloud-newer', 'The backup copy on Supabase is newer than your current local browser instance.', localDateStr, cloudDateStr);
+                    if (decision === 'pull') await performCloudPullExtractionSequence(cloudData);
+                    else if (decision === 'push') await performCloudWriteExecutionSequence();
                 }
-
-                const localStamp = meta.lastUpdated || 0;
-                const cloudStamp = cloudData.meta ? cloudData.meta.lastUpdated || 0 : 0;
-                const localDateStr = localStamp ? new Date(localStamp).toLocaleString() : 'Never';
-                const cloudDateStr = cloudStamp ? new Date(cloudStamp).toLocaleString() : 'Never';
-
-                if (localStamp === cloudStamp) {
-                    setCloudStatus('☁ Cloud Synced');
-                } else if (cloudStamp > localStamp) {
-                    setCloudStatus('☁ Update Available');
-                    if (promptUser) {
-                        const decision = await presentCloudSyncCrossroadsPrompt('cloud-newer', 'The backup copy on Google Drive is newer than your current local browser instance.', localDateStr, cloudDateStr);
-                        if (decision === 'pull') await performCloudPullExtractionSequence(cloudData);
-                        else if (decision === 'push') await performCloudWriteExecutionSequence(false);
-                    }
-                } else {
-                    setCloudStatus('☁ Local Changes Pending');
-                    if (promptUser) {
-                        const decision = await presentCloudSyncCrossroadsPrompt('local-newer', 'Your current browser state contains changes that are newer than the active cloud backup file.', localDateStr, cloudDateStr);
-                        if (decision === 'push') await performCloudWriteExecutionSequence(false);
-                        else if (decision === 'pull') await performCloudPullExtractionSequence(cloudData);
-                    }
+            } else {
+                setCloudStatus('☁ Local Changes Pending');
+                if (promptUser) {
+                    const decision = await presentCloudSyncCrossroadsPrompt('local-newer', 'Your current browser state contains changes that are newer than the active cloud backup file.', localDateStr, cloudDateStr);
+                    if (decision === 'push') await performCloudWriteExecutionSequence();
+                    else if (decision === 'pull') await performCloudPullExtractionSequence(cloudData);
                 }
-            } catch (err) {
-                setCloudStatus('☁ Cloud Read Failed');
             }
         }
 
@@ -1254,7 +1221,7 @@ function calculateOvertime(startDt, endDt, multiplier) {
                 const o = document.getElementById('customChoiceOverlay');
                 const t = document.getElementById('choiceOverlayMessage');
                 const b = document.getElementById('choiceButtonsContainer');
-                t.innerHTML = '<strong>Sign Out</strong><br><br>Disconnect this browser from Google Drive?';
+                t.innerHTML = '<strong>Sign Out</strong><br><br>Disconnect this session from Supabase?';
                 b.className = 'choice-buttons-row';
                 b.innerHTML = '<button class="btn-choice btn-choice-left" id="signoutCancel">Cancel</button><button class="btn-choice btn-choice-danger" id="signoutProceed">Sign Out</button>';
                 const c = document.getElementById('signoutCancel');
@@ -1274,7 +1241,7 @@ function calculateOvertime(startDt, endDt, multiplier) {
         }
 
         async function manuallyTriggerCloudBackup() {
-            if (!activeAccessToken) { alert('Sign in first.'); return; }
+            if (!activeUserSession) { alert('Sign in first.'); return; }
             try {
                 const cloudDb = await fetchCloudDatabase();
                 const localStamp = meta.lastUpdated || 0;
@@ -1286,7 +1253,7 @@ function calculateOvertime(startDt, endDt, multiplier) {
                 let headline = 'Sync state evaluated.';
 
                 const decision = await presentCloudSyncCrossroadsPrompt(state, headline, localDate, cloudDate);
-                if (decision === 'push') await performCloudWriteExecutionSequence(false);
+                if (decision === 'push') await performCloudWriteExecutionSequence();
                 else if (decision === 'pull') await performCloudPullExtractionSequence(cloudDb);
             } catch (err) {
                 setCloudStatus('☁ Dynamic Sync Error');
@@ -1294,10 +1261,10 @@ function calculateOvertime(startDt, endDt, multiplier) {
         }
 
         async function manuallyTriggerCloudRestore() {
-            if (!activeAccessToken) { alert('Sign in first.'); return; }
+            if (!activeUserSession) { alert('Sign in first.'); return; }
             try {
                 const cloudDb = await fetchCloudDatabase();
-                if (!cloudDb) { alert('No overtime backup file was found.'); return; }
+                if (!cloudDb) { alert('No backup record was found in the database.'); return; }
 
                 await performCloudPullExtractionSequence(cloudDb);
             } catch (err) {
@@ -1313,7 +1280,6 @@ function calculateOvertime(startDt, endDt, multiplier) {
 
             localStorage.setItem('ot_records', JSON.stringify(records));
             localStorage.setItem('ot_meta', JSON.stringify(meta));
-            isCloudSyncPending = false;
 
             const multiplier = document.getElementById('defaultMultiplierSelect');
             if (multiplier) multiplier.value = meta.defaultMultiplier || 'ΓΡΑΦΕΙΑΚΟ';
@@ -1321,49 +1287,31 @@ function calculateOvertime(startDt, endDt, multiplier) {
             setCloudStatus('☁ Cloud Synced');
         }
 
-        async function performCloudWriteExecutionSequence(isInitialInstantiation = false) {
-            if (!activeAccessToken) return;
+        async function performCloudWriteExecutionSequence() {
+            if (!activeUserSession) return;
 
             setCloudStatus('☁ Uploading...');
-            isCloudSyncPending = false;
 
             meta.lastUpdated = Date.now();
             localStorage.setItem('ot_records', JSON.stringify(records));
             localStorage.setItem('ot_meta', JSON.stringify(meta));
 
             const payload = { records, meta };
-            let url = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
-            let method = 'POST';
 
-            if (gdriveFileId) {
-                url = `https://www.googleapis.com/upload/drive/v3/files/${encodeURIComponent(gdriveFileId)}?uploadType=multipart`;
-                method = 'PATCH';
+            const { error } = await supabaseClient
+                .from('expenses')
+                .upsert({
+                    user_id: activeUserSession.user.id,
+                    data: payload,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+
+            if (error) {
+                console.error('Supabase Sync Error:', error.message);
+                setCloudStatus('☁ Sync Failure');
+            } else {
+                setCloudStatus('☁ Cloud Synced');
             }
-
-            const metadata = { name: DEDICATED_FILE_NAME, mimeType: 'application/json' };
-            const boundary = 'overtime_boundary_v36';
-            const delimiter = `\r\n--${boundary}\r\n`;
-            const closeDelimiter = `\r\n--${boundary}--`;
-            const body = delimiter +
-                'Content-Type: application/json; charset=UTF-8\r\n\r\n' +
-                JSON.stringify(metadata) +
-                delimiter +
-                'Content-Type: application/json\r\n\r\n' +
-                JSON.stringify(payload) +
-                closeDelimiter;
-
-            const response = await googleDriveFetch(url, {
-                method,
-                headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
-                body
-            });
-
-            const responseText = await response.text();
-            let responseData = {};
-            if (responseText) { try { responseData = JSON.parse(responseText); } catch (_) {} }
-
-            if (responseData.id) gdriveFileId = responseData.id;
-            setCloudStatus('☁ Cloud Synced');
         }
 
         function toggleUtilityDrawer() {
@@ -1428,6 +1376,6 @@ function calculateOvertime(startDt, endDt, multiplier) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.8.2</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4</div>
 </body>
 </html>
