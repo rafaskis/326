@@ -268,10 +268,10 @@
         const DEDICATED_FILE_NAME = 'overtime_database.json';
 
         const MONTH_NAMES = [
-            "Ιανουάριος (January)", "Φεβρουάριος (February)", "Μάρτιος (March)", 
-            "Απρίλιος (April)", "Μάιος (May)", "Ιούνιος (June)", 
-            "Ιούλιος (July)", "Αύγουστος (August)", "Σεπτέμβριος (September)", 
-            "Οκτώβριος (October)", "Νοέμβριος (November)", "Δεκέμβριος (December)"
+            "Ιανουάριος", "Φεβρουάριος", "Μάρτιος", 
+            "Απρίλιος", "Μάιος", "Ιούνιος", 
+            "Ιούλιος", "Αύγουστος (August)", "Σεπτέμβριος", 
+            "Οκτώβριος", "Νοέμβριος", "Δεκέμβριος"
         ];
 
         let records = [];
@@ -552,10 +552,14 @@
         }
 
         window.onload = function() {
-            activeYear = new Date().getFullYear(); // Ensures current year on load
+// Only set default on initial page load if not already set
+    if (!activeYear) {
+        activeYear = new Date().getFullYear(); 
+    }
             populateHourOptions();
             initializeSavedDisplayTheme();
             loadLocalStorageCache();
+            
             document.getElementById('yearDisplay').innerText = activeYear;
             document.getElementById('defaultMultiplierSelect').value = meta.defaultMultiplier;
             render();
@@ -1424,6 +1428,6 @@ function calculateOvertime(startDt, endDt, multiplier) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.8.1</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v3.8.2</div>
 </body>
 </html>
