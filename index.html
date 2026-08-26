@@ -258,6 +258,21 @@
 
     <div class="utility-toggle-header" onclick="toggleUtilityDrawer()"><span>Offline Data Options</span><span class="utility-arrow" id="utilArrow">▼</span></div>
     <div class="utility-card" id="utilityDrawerCard">
+        
+<div class="utility-title">📢 Announcements</div>
+    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+        <div style="display: flex; gap: 6px;">
+            <input type="text" id="sharedFileSearch" placeholder="🔍 Search shared files..." oninput="filterSharedFileList()" style="padding: 6px 10px; font-size: 12px; flex: 1;">
+            <button class="btn-util" onclick="fetchSharedFileList()" style="width: auto; padding: 6px 12px; font-size: 12px; font-weight: bold;">🔄 Refresh</button>
+        </div>
+        
+        <select id="sharedFileSelect" style="font-size: 12px; padding: 8px;">
+            <option value="">Click Refresh to load shared files...</option>
+        </select>
+        
+        <button class="btn-util" onclick="loadSelectedSharedFile()" style="font-weight: bold; background: var(--primary); color: white;">📥 Load Selected File</button>
+    </div>
+        
         <div class="utility-title">Manual Backup (Offline)</div>
         <div class="utility-grid" style="margin-bottom:12px;">
             <button class="btn-util" onclick="exportToFile()">📥 Export Data to File</button>
@@ -328,10 +343,110 @@
         const MONTH_NAMES = [
             "Ιανουάριος", "Φεβρουάριος", "Μάρτιος", 
             "Απρίλιος", "Μάιος", "Ιούνιος", 
-            "Ιούλιος", "Αύγουστος (August)", "Σεπτέμβριος", 
+            "Ιούλιος", "Αύγουστος", "Σεπτέμβριος", 
             "Οκτώβριος", "Νοέμβριος", "Δεκέμβριος"
         ];
 
+// -------------------------------------------------------------
+// SUPABASE SHARED FILES & ANNOUNCEMENTS BROWSER
+// -------------------------------------------------------------
+let availableSharedFiles = [];
+
+// 1. Fetch shared files from the Supabase bucket
+async function fetchSharedFileList() {
+    const selectEl = document.getElementById('sharedFileSelect');
+    if (!selectEl) return;
+    
+    selectEl.innerHTML = '<option value="">Scanning shared files...</option>';
+    
+    try {
+        const { data, error } = await supabaseClient
+            .storage
+            .from('shared-files') // Replace with 'announcements' if that is your bucket name
+            .list('', { limit: 100, sortBy: { column: 'name', order: 'desc' } });
+
+        if (error) throw error;
+
+        availableSharedFiles = data.filter(file => file.name && file.name.endsWith('.json'));
+        renderSharedFileOptions(availableSharedFiles);
+    } catch (err) {
+        console.error('Failed to fetch shared files:', err);
+        selectEl.innerHTML = '<option value="">Unable to load shared files</option>';
+    }
+}
+
+// 2. Populate options into dropdown list
+function renderSharedFileOptions(fileList) {
+    const selectEl = document.getElementById('sharedFileSelect');
+    if (!selectEl) return;
+    
+    selectEl.innerHTML = '';
+    
+    if (!fileList || fileList.length === 0) {
+        selectEl.innerHTML = '<option value="">No shared files available</option>';
+        return;
+    }
+    
+    fileList.forEach(file => {
+        const opt = document.createElement('option');
+        opt.value = file.name;
+        opt.textContent = file.name;
+        selectEl.appendChild(opt);
+    });
+}
+
+// 3. Filter files live based on search bar
+function filterSharedFileList() {
+    const query = document.getElementById('sharedFileSearch').value.toLowerCase();
+    const filtered = availableSharedFiles.filter(file => file.name.toLowerCase().includes(query));
+    renderSharedFileOptions(filtered);
+}
+
+// 4. Download and load selected shared file content
+async function loadSelectedSharedFile() {
+    const filename = document.getElementById('sharedFileSelect').value;
+    if (!filename) {
+        alert('Please select a file first.');
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to load "${filename}"?`)) {
+        return;
+    }
+    
+    try {
+        const { data, error } = await supabaseClient
+            .storage
+            .from('shared-files')
+            .download(filename);
+
+        if (error) throw error;
+
+        const textContent = await data.text();
+        const parsed = JSON.parse(textContent);
+
+        if (!Array.isArray(parsed.records)) throw new Error('Invalid file format');
+        
+        records = parsed.records;
+        meta = parsed.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: 'light' };
+        meta.lastUpdated = Date.now();
+
+        if (meta.theme) {
+            document.documentElement.setAttribute('data-theme', meta.theme);
+            localStorage.setItem('ot_app_theme', meta.theme);
+        }
+
+        localStorage.setItem('ot_records', JSON.stringify(records));
+        localStorage.setItem('ot_meta', JSON.stringify(meta));
+        
+        alert(`Successfully loaded ${filename}!`);
+        location.reload();
+    } catch (err) {
+        alert('Error loading shared file: ' + err.message);
+    }
+}
+
+        
         let records = [];
         let meta = { defaultMultiplier: "ΓΡΑΦΕΙΑΚΟ", lastUpdated: 0, theme: "light" };
         let activeYear = new Date().getFullYear();
@@ -1397,6 +1512,7 @@ async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
             } else {
                 card.style.display = 'block';
                 if (arrow) arrow.style.transform = 'rotate(180deg)';
+                fetchSharedFileList(); // Automatically fetch shared files when opening
             }
         }
 
@@ -1455,6 +1571,6 @@ async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4.4</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5</div>
 </body>
 </html>
