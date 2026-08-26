@@ -362,7 +362,7 @@ async function fetchSharedFileList() {
     try {
         const { data, error } = await supabaseClient
             .storage
-            .from('shared-files') // Match your Supabase bucket name
+            .from('shared') // Match your Supabase bucket name
             .list('', { limit: 100, sortBy: { column: 'name', order: 'desc' } });
 
         if (error) throw error;
@@ -415,7 +415,7 @@ async function loadSelectedSharedFile() {
         // Retrieve public URL or download blob from Supabase Storage
         const { data, error } = await supabaseClient
             .storage
-            .from('shared-files')
+            .from('shared')
             .download(filename);
 
         if (error) throw error;
@@ -1566,6 +1566,6 @@ async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.2</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.3</div>
 </body>
 </html>
