@@ -362,7 +362,7 @@ async function fetchSharedFileList() {
     try {
         const { data, error } = await supabaseClient
             .storage
-            .from('shared-files') // Replace with 'announcements' if that is your bucket name
+            .from('shared') // Replace with 'announcements' if that is your bucket name
             .list('', { limit: 100, sortBy: { column: 'name', order: 'desc' } });
 
         if (error) throw error;
@@ -417,7 +417,7 @@ async function loadSelectedSharedFile() {
     try {
         const { data, error } = await supabaseClient
             .storage
-            .from('shared-files')
+            .from('shared')
             .download(filename);
 
         if (error) throw error;
