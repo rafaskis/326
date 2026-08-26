@@ -1148,11 +1148,45 @@
                 if (cloudDb && Array.isArray(cloudDb.records)) {
                     await checkTimelineMetricsAgainstCloudTarget(cloudDb, promptUser);
                 } else {
-                    await performCloudWriteExecutionSequence();
+                    await initializeBlankUserCloudDatabase();
                 }
             } catch (err) {
                 console.error('Sync check failed:', err);
                 setCloudStatus('☁ Sync Failure');
+            }
+        }
+
+        async function initializeBlankUserCloudDatabase() {
+            if (!activeUserSession || !activeUserSession.user) return;
+
+            setCloudStatus('☁ Initializing Account...');
+
+            records = [];
+            meta = {
+                defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ',
+                lastUpdated: Date.now(),
+                theme: localStorage.getItem('ot_app_theme') || 'light'
+            };
+
+            const payload = { records, meta };
+
+            const { error } = await supabaseClient
+                .from('expenses')
+                .upsert({
+                    user_id: activeUserSession.user.id,
+                    data: payload,
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
+
+            if (error) {
+                console.error('Initial database creation failed:', error.message);
+                setCloudStatus('☁ Init Failure');
+            } else {
+                saveStateToLocalStorage();
+                const multiplierSelect = document.getElementById('defaultMultiplierSelect');
+                if (multiplierSelect) multiplierSelect.value = meta.defaultMultiplier;
+                render();
+                setCloudStatus('☁ Cloud Synced');
             }
         }
 
@@ -1411,6 +1445,6 @@
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4.2</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4.3</div>
 </body>
 </html>
