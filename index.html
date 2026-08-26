@@ -260,7 +260,7 @@
     <div class="utility-card" id="utilityDrawerCard">
         
 <div class="utility-title">📢 Announcements</div>
-    <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
+<div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
         <div style="display: flex; gap: 6px;">
             <input type="text" id="sharedFileSearch" placeholder="🔍 Search shared files..." oninput="filterSharedFileList()" style="padding: 6px 10px; font-size: 12px; flex: 1;">
             <button class="btn-util" onclick="fetchSharedFileList()" style="width: auto; padding: 6px 12px; font-size: 12px; font-weight: bold;">🔄 Refresh</button>
@@ -270,7 +270,7 @@
             <option value="">Click Refresh to load shared files...</option>
         </select>
         
-        <button class="btn-util" onclick="loadSelectedSharedFile()" style="font-weight: bold; background: var(--primary); color: white;">📥 Load Selected File</button>
+        <button class="btn-util" onclick="loadSelectedSharedFile()" style="font-weight: bold; background: var(--primary); color: white;">📥 Open / Download Selected File</button>
     </div>
         
         <div class="utility-title">Manual Backup (Offline)</div>
@@ -352,7 +352,7 @@
 // -------------------------------------------------------------
 let availableSharedFiles = [];
 
-// 1. Fetch shared files from the Supabase bucket
+// 1. Fetch ALL available shared files from the Supabase bucket regardless of extension
 async function fetchSharedFileList() {
     const selectEl = document.getElementById('sharedFileSelect');
     if (!selectEl) return;
@@ -362,12 +362,13 @@ async function fetchSharedFileList() {
     try {
         const { data, error } = await supabaseClient
             .storage
-            .from('shared') // Replace with 'announcements' if that is your bucket name
+            .from('shared-files') // Match your Supabase bucket name
             .list('', { limit: 100, sortBy: { column: 'name', order: 'desc' } });
 
         if (error) throw error;
 
-        availableSharedFiles = data.filter(file => file.name && file.name.endsWith('.json'));
+        // Filter out folder placeables (.emptyFolderPlaceholder) if any exist
+        availableSharedFiles = data.filter(file => file.name && !file.name.startsWith('.'));
         renderSharedFileOptions(availableSharedFiles);
     } catch (err) {
         console.error('Failed to fetch shared files:', err);
@@ -375,7 +376,7 @@ async function fetchSharedFileList() {
     }
 }
 
-// 2. Populate options into dropdown list
+// 2. Populate dropdown with filenames
 function renderSharedFileOptions(fileList) {
     const selectEl = document.getElementById('sharedFileSelect');
     if (!selectEl) return;
@@ -402,7 +403,7 @@ function filterSharedFileList() {
     renderSharedFileOptions(filtered);
 }
 
-// 4. Download and load selected shared file content
+// 4. Open or download any file type directly in a new browser tab
 async function loadSelectedSharedFile() {
     const filename = document.getElementById('sharedFileSelect').value;
     if (!filename) {
@@ -410,39 +411,33 @@ async function loadSelectedSharedFile() {
         return;
     }
     
-    if (!confirm(`Are you sure you want to load "${filename}"?`)) {
-        return;
-    }
-    
     try {
+        // Retrieve public URL or download blob from Supabase Storage
         const { data, error } = await supabaseClient
             .storage
-            .from('shared')
+            .from('shared-files')
             .download(filename);
 
         if (error) throw error;
 
-        const textContent = await data.text();
-        const parsed = JSON.parse(textContent);
+        // Create a browser object URL for viewing/downloading the file
+        const blobUrl = URL.createObjectURL(data);
 
-        if (!Array.isArray(parsed.records)) throw new Error('Invalid file format');
+        // Open PDFs, images, and documents in a new tab for viewing or downloading
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.target = '_blank';
         
-        records = parsed.records;
-        meta = parsed.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: 'light' };
-        meta.lastUpdated = Date.now();
+        // If it's a PDF/Image, the browser will open it; otherwise it triggers a download
+        link.download = filename; 
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
 
-        if (meta.theme) {
-            document.documentElement.setAttribute('data-theme', meta.theme);
-            localStorage.setItem('ot_app_theme', meta.theme);
-        }
-
-        localStorage.setItem('ot_records', JSON.stringify(records));
-        localStorage.setItem('ot_meta', JSON.stringify(meta));
-        
-        alert(`Successfully loaded ${filename}!`);
-        location.reload();
+        // Cleanup blob memory allocation after a short delay
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
     } catch (err) {
-        alert('Error loading shared file: ' + err.message);
+        alert('Error accessing shared file: ' + err.message);
     }
 }
 
@@ -1571,6 +1566,6 @@ async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.2</div>
 </body>
 </html>
