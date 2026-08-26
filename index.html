@@ -333,7 +333,7 @@
         ];
 
         let records = [];
-        let meta = { defaultMultiplier: "ΓΡΑΦΕΙΑΚΟ", lastUpdated: 0 };
+        let meta = { defaultMultiplier: "ΓΡΑΦΕΙΑΚΟ", lastUpdated: 0, theme: "light" };
         let activeYear = new Date().getFullYear();
         let editingRecordId = null;
         let collapsedMonths = {};
@@ -593,15 +593,19 @@
         }
 
         function initializeSavedDisplayTheme() {
-            const savedTheme = localStorage.getItem('ot_app_theme') || 'light';
+            const savedTheme = localStorage.getItem('ot_app_theme') || meta.theme || 'light';
             document.documentElement.setAttribute('data-theme', savedTheme);
+            meta.theme = savedTheme;
         }
 
-        function toggleDisplayTheme() {
+        async function toggleDisplayTheme() {
             const activeTheme = document.documentElement.getAttribute('data-theme');
             const targetTheme = activeTheme === 'dark' ? 'light' : 'dark';
             document.documentElement.setAttribute('data-theme', targetTheme);
             localStorage.setItem('ot_app_theme', targetTheme);
+            meta.theme = targetTheme;
+            saveStateToLocalStorage();
+            await silentlyExecuteCloudSyncEngineCheck();
         }
 
         window.onload = function() {
@@ -609,8 +613,8 @@
                 activeYear = new Date().getFullYear(); 
             }
             populateHourOptions();
-            initializeSavedDisplayTheme();
             loadLocalStorageCache();
+            initializeSavedDisplayTheme();
             
             document.getElementById('yearDisplay').innerText = activeYear;
             document.getElementById('defaultMultiplierSelect').value = meta.defaultMultiplier;
@@ -1044,9 +1048,20 @@
                 const confirmed = await presentInteractiveSignOutConfirmation();
                 if (!confirmed) return;
                 await supabaseClient.auth.signOut();
+                clearLocalUserDataOnSignOut();
             } else {
                 openLoginModal();
             }
+        }
+
+        function clearLocalUserDataOnSignOut() {
+            localStorage.removeItem('ot_records');
+            localStorage.removeItem('ot_meta');
+            records = [];
+            meta = { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: localStorage.getItem('ot_app_theme') || 'light' };
+            const multiplierSelect = document.getElementById('defaultMultiplierSelect');
+            if (multiplierSelect) multiplierSelect.value = meta.defaultMultiplier;
+            render();
         }
 
         function openLoginModal() {
@@ -1284,7 +1299,12 @@
             if (!cloudDb || !Array.isArray(cloudDb.records)) return;
 
             records = cloudDb.records;
-            meta = cloudDb.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now() };
+            meta = cloudDb.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: 'light' };
+
+            if (meta.theme) {
+                document.documentElement.setAttribute('data-theme', meta.theme);
+                localStorage.setItem('ot_app_theme', meta.theme);
+            }
 
             localStorage.setItem('ot_records', JSON.stringify(records));
             localStorage.setItem('ot_meta', JSON.stringify(meta));
@@ -1301,6 +1321,7 @@
             setCloudStatus('☁ Uploading...');
 
             meta.lastUpdated = Date.now();
+            meta.theme = localStorage.getItem('ot_app_theme') || meta.theme || 'light';
             localStorage.setItem('ot_records', JSON.stringify(records));
             localStorage.setItem('ot_meta', JSON.stringify(meta));
 
@@ -1340,7 +1361,7 @@
             localStorage.removeItem('ot_records');
             localStorage.removeItem('ot_meta');
             records = [];
-            meta = { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now() };
+            meta = { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: localStorage.getItem('ot_app_theme') || 'light' };
             localStorage.setItem('ot_records', JSON.stringify(records));
             localStorage.setItem('ot_meta', JSON.stringify(meta));
             location.reload();
@@ -1370,8 +1391,14 @@
                     if (!Array.isArray(parsed.records)) throw new Error('Invalid format');
 
                     records = parsed.records;
-                    meta = parsed.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now() };
+                    meta = parsed.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: 'light' };
                     meta.lastUpdated = Date.now();
+
+                    if (meta.theme) {
+                        document.documentElement.setAttribute('data-theme', meta.theme);
+                        localStorage.setItem('ot_app_theme', meta.theme);
+                    }
+
                     localStorage.setItem('ot_records', JSON.stringify(records));
                     localStorage.setItem('ot_meta', JSON.stringify(meta));
                     location.reload();
@@ -1384,6 +1411,6 @@
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4.1</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4.2</div>
 </body>
 </html>
