@@ -261,17 +261,20 @@
         
 <div class="utility-title">📢 Announcements</div>
 <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;">
-        <div style="display: flex; gap: 6px;">
-            <input type="text" id="sharedFileSearch" placeholder="🔍 Search shared files..." oninput="filterSharedFileList()" style="padding: 6px 10px; font-size: 12px; flex: 1;">
-            <button class="btn-util" onclick="fetchSharedFileList()" style="width: auto; padding: 6px 12px; font-size: 12px; font-weight: bold;">🔄 Refresh</button>
-        </div>
-        
-        <select id="sharedFileSelect" style="font-size: 12px; padding: 8px;">
-            <option value="">Click Refresh to load shared files...</option>
-        </select>
-        
-        <button class="btn-util" onclick="loadSelectedSharedFile()" style="font-weight: bold; background: var(--primary); color: white;">📥 Open / Download Selected File</button>
+    <!-- Search Bar & Navigation Header -->
+    <div style="display: flex; gap: 6px; align-items: center;">
+        <button class="btn-util" id="sharedBackBtn" onclick="navigateParentSharedFolder()" disabled style="width: auto; padding: 6px 12px; font-size: 12px; font-weight: bold;">⬆️ Back</button>
+        <span id="sharedCurrentPathDisplay" style="font-size: 11px; font-weight: bold; color: var(--text-muted); text-overflow: ellipsis; overflow: hidden; white-space: nowrap; flex: 1;">/ (Root)</span>
+        <button class="btn-util" onclick="fetchSharedFileList(currentSharedPath)" style="width: auto; padding: 6px 12px; font-size: 12px; font-weight: bold;">🔄 Refresh</button>
     </div>
+
+    <input type="text" id="sharedFileSearch" placeholder="🔍 Filter current view..." oninput="filterSharedFileList()" style="padding: 6px 10px; font-size: 12px;">
+
+    <!-- Interactive Folder & File Explorer List -->
+    <div id="sharedExplorerContainer" style="background: var(--card-bg); border: 1px solid var(--border); border-radius: 8px; max-height: 220px; overflow-y: auto; padding: 4px;">
+        <div style="text-align: center; font-size: 12px; color: var(--text-muted); padding: 12px;">Click Refresh or open drawer to load...</div>
+    </div>
+</div>
         
         <div class="utility-title">Manual Backup (Offline)</div>
         <div class="utility-grid" style="margin-bottom:12px;">
@@ -351,94 +354,185 @@
 // SUPABASE SHARED FILES & ANNOUNCEMENTS BROWSER
 // -------------------------------------------------------------
 let availableSharedFiles = [];
+let currentSharedPath = ''; // Root folder
 
-// 1. Fetch ALL available shared files from the Supabase bucket regardless of extension
-async function fetchSharedFileList() {
-    const selectEl = document.getElementById('sharedFileSelect');
-    if (!selectEl) return;
+/**
+ * Fetch files and subfolders for a specific path from Supabase Storage
+ */
+async function fetchSharedFileList(path = '') {
+    currentSharedPath = path;
+    updateSharedExplorerUIHeader();
+
+    const container = document.getElementById('sharedExplorerContainer');
+    if (!container) return;
     
-    selectEl.innerHTML = '<option value="">Scanning shared files...</option>';
+    container.innerHTML = '<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:12px;">Scanning directory...</div>';
     
     try {
         const { data, error } = await supabaseClient
             .storage
-            .from('shared') // Match your Supabase bucket name
-            .list('', { limit: 100, sortBy: { column: 'name', order: 'desc' } });
+            .from('shared') // Supabase bucket name
+            .list(currentSharedPath, { limit: 100, sortBy: { column: 'name', order: 'asc' } });
 
         if (error) throw error;
 
-        // Filter out folder placeables (.emptyFolderPlaceholder) if any exist
-        availableSharedFiles = data.filter(file => file.name && !file.name.startsWith('.'));
-        renderSharedFileOptions(availableSharedFiles);
+        // Filter out dummy placeholder files created by Supabase for empty folders
+        availableSharedFiles = data.filter(item => item.name && item.name !== '.emptyFolderPlaceholder');
+        renderSharedExplorer(availableSharedFiles);
     } catch (err) {
         console.error('Failed to fetch shared files:', err);
-        selectEl.innerHTML = '<option value="">Unable to load shared files</option>';
+        container.innerHTML = '<div style="text-align:center; font-size:12px; color:var(--danger); padding:12px;">Unable to load folder contents</div>';
     }
 }
 
-// 2. Populate dropdown with filenames
-function renderSharedFileOptions(fileList) {
-    const selectEl = document.getElementById('sharedFileSelect');
-    if (!selectEl) return;
+/**
+ * Render items with visual distinction between subfolders and files
+ */
+function renderSharedExplorer(itemList) {
+    const container = document.getElementById('sharedExplorerContainer');
+    if (!container) return;
     
-    selectEl.innerHTML = '';
+    container.innerHTML = '';
     
-    if (!fileList || fileList.length === 0) {
-        selectEl.innerHTML = '<option value="">No shared files available</option>';
+    if (!itemList || itemList.length === 0) {
+        container.innerHTML = '<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:12px;">This folder is empty</div>';
         return;
     }
     
-    fileList.forEach(file => {
-        const opt = document.createElement('option');
-        opt.value = file.name;
-        opt.textContent = file.name;
-        selectEl.appendChild(opt);
+    const ul = document.createElement('ul');
+    ul.style.listStyle = 'none';
+    ul.style.padding = '0';
+    ul.style.margin = '0';
+
+    itemList.forEach(item => {
+        // Distinguish folders: Supabase subfolders return without an 'id' or metadata
+        const isFolder = !item.id && !item.metadata;
+
+        const li = document.createElement('li');
+        li.style.display = 'flex';
+        li.style.alignItems = 'center';
+        li.style.justifySpaceBetween = 'space-between';
+        li.style.padding = '8px 10px';
+        li.style.borderBottom = '1px solid var(--border)';
+        li.style.cursor = 'pointer';
+        li.style.fontSize = '13px';
+        li.style.borderRadius = '6px';
+
+        // Hover effect styling
+        li.onmouseenter = () => li.style.background = 'var(--cloud-bar-bg)';
+        li.onmouseleave = () => li.style.background = 'transparent';
+
+        // Build path reference
+        const fullItemPath = currentSharedPath ? `${currentSharedPath}/${item.name}` : item.name;
+
+        if (isFolder) {
+            li.innerHTML = `
+                <div style="display:flex; align-items:center; gap:8px; font-weight:bold; color:var(--primary); overflow:hidden;">
+                    <span>📁</span>
+                    <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${item.name}</span>
+                </div>
+                <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">Folder ➔</span>
+            `;
+            li.onclick = () => fetchSharedFileList(fullItemPath);
+        } else {
+            const icon = getFileIcon(item.name);
+            const sizeStr = item.metadata?.size ? formatFileBytes(item.metadata.size) : '';
+
+            li.innerHTML = `
+                <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
+                    <span>${icon}</span>
+                    <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${item.name}</span>
+                </div>
+                <span style="font-size:11px; color:var(--text-muted); margin-left:8px;">${sizeStr}</span>
+            `;
+            li.onclick = () => loadSelectedSharedFile(fullItemPath, item.name);
+        }
+
+        ul.appendChild(li);
     });
+
+    container.appendChild(ul);
 }
 
-// 3. Filter files live based on search bar
+/**
+ * Filter folder view locally via search input
+ */
 function filterSharedFileList() {
     const query = document.getElementById('sharedFileSearch').value.toLowerCase();
-    const filtered = availableSharedFiles.filter(file => file.name.toLowerCase().includes(query));
-    renderSharedFileOptions(filtered);
+    const filtered = availableSharedFiles.filter(item => item.name.toLowerCase().includes(query));
+    renderSharedExplorer(filtered);
 }
 
-// 4. Open or download any file type directly in a new browser tab
-async function loadSelectedSharedFile() {
-    const filename = document.getElementById('sharedFileSelect').value;
-    if (!filename) {
-        alert('Please select a file first.');
-        return;
-    }
-    
+/**
+ * Navigate to parent directory
+ */
+function navigateParentSharedFolder() {
+    if (!currentSharedPath) return;
+
+    const parts = currentSharedPath.split('/');
+    parts.pop();
+    const parentPath = parts.join('/');
+
+    fetchSharedFileList(parentPath);
+}
+
+/**
+ * Update folder path text & enable/disable Back button
+ */
+function updateSharedExplorerUIHeader() {
+    const pathLabel = document.getElementById('sharedCurrentPathDisplay');
+    const backBtn = document.getElementById('sharedBackBtn');
+
+    if (pathLabel) pathLabel.textContent = currentSharedPath ? `/${currentSharedPath}` : '/ (Root)';
+    if (backBtn) backBtn.disabled = currentSharedPath === '';
+}
+
+/**
+ * Open or download selected file using its complete relative path
+ */
+async function loadSelectedSharedFile(filePath, fileName) {
     try {
-        // Retrieve public URL or download blob from Supabase Storage
         const { data, error } = await supabaseClient
             .storage
             .from('shared')
-            .download(filename);
+            .download(filePath);
 
         if (error) throw error;
 
-        // Create a browser object URL for viewing/downloading the file
         const blobUrl = URL.createObjectURL(data);
-
-        // Open PDFs, images, and documents in a new tab for viewing or downloading
         const link = document.createElement('a');
         link.href = blobUrl;
         link.target = '_blank';
-        
-        // If it's a PDF/Image, the browser will open it; otherwise it triggers a download
-        link.download = filename; 
+        link.download = fileName;
         document.body.appendChild(link);
         link.click();
         link.remove();
 
-        // Cleanup blob memory allocation after a short delay
         setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
     } catch (err) {
-        alert('Error accessing shared file: ' + err.message);
+        alert('Error downloading file: ' + err.message);
     }
+}
+
+/**
+ * Helper to display appropriate icons per file extension
+ */
+function getFileIcon(filename) {
+    const ext = filename.split('.').pop().toLowerCase();
+    if (['pdf'].includes(ext)) return '📕';
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)) return '🖼️';
+    if (['txt', 'json', 'csv', 'doc', 'docx'].includes(ext)) return '📄';
+    return '📎';
+}
+
+/**
+ * Helper to format byte dimensions into human-readable strings
+ */
+function formatFileBytes(bytes) {
+    if (!bytes) return '';
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
 }
 
         
@@ -1566,6 +1660,6 @@ async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.3</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.4</div>
 </body>
 </html>
