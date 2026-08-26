@@ -386,7 +386,7 @@ async function fetchSharedFileList(path = '') {
 }
 
 /**
- * Render items with visual distinction between subfolders and files
+ * Render items with visual distinction between subfolders and files showing date/time uploaded
  */
 function renderSharedExplorer(itemList) {
     const container = document.getElementById('sharedExplorerContainer');
@@ -411,7 +411,7 @@ function renderSharedExplorer(itemList) {
         const li = document.createElement('li');
         li.style.display = 'flex';
         li.style.alignItems = 'center';
-        li.style.justifySpaceBetween = 'space-between';
+        li.style.justifyContent = 'space-between';
         li.style.padding = '8px 10px';
         li.style.borderBottom = '1px solid var(--border)';
         li.style.cursor = 'pointer';
@@ -436,14 +436,15 @@ function renderSharedExplorer(itemList) {
             li.onclick = () => fetchSharedFileList(fullItemPath);
         } else {
             const icon = getFileIcon(item.name);
-            const sizeStr = item.metadata?.size ? formatFileBytes(item.metadata.size) : '';
+            // Extract and format the created_at timestamp
+            const dateStr = item.created_at ? formatFileDate(item.created_at) : '';
 
             li.innerHTML = `
                 <div style="display:flex; align-items:center; gap:8px; overflow:hidden;">
                     <span>${icon}</span>
                     <span style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${item.name}</span>
                 </div>
-                <span style="font-size:11px; color:var(--text-muted); margin-left:8px;">${sizeStr}</span>
+                <span style="font-size:11px; color:var(--text-muted); margin-left:8px; white-space:nowrap;">${dateStr}</span>
             `;
             li.onclick = () => loadSelectedSharedFile(fullItemPath, item.name);
         }
@@ -533,6 +534,21 @@ function formatFileBytes(bytes) {
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
+}
+
+        /**
+ * Helper to format ISO timestamp into DD/MM/YYYY HH:mm
+ */
+function formatFileDate(isoString) {
+    if (!isoString) return '';
+    const d = new Date(isoString);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
 }
 
         
@@ -1660,6 +1676,6 @@ async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.4</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.5</div>
 </body>
 </html>
