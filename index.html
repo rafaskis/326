@@ -1138,23 +1138,33 @@
             await lookupAndSynchronizeCloudBackupStorageState(false);
         }
 
-        async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
-            if (!activeUserSession) return;
+async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
+    if (!activeUserSession) return;
 
-            try {
-                setCloudStatus('☁ Checking Cloud...');
-                const cloudDb = await fetchCloudDatabase();
+    try {
+        setCloudStatus('☁ Checking Cloud...');
+        const cloudDb = await fetchCloudDatabase();
 
-                if (cloudDb && Array.isArray(cloudDb.records)) {
-                    await checkTimelineMetricsAgainstCloudTarget(cloudDb, promptUser);
-                } else {
-                    await initializeBlankUserCloudDatabase();
-                }
-            } catch (err) {
-                console.error('Sync check failed:', err);
-                setCloudStatus('☁ Sync Failure');
+        if (cloudDb && Array.isArray(cloudDb.records)) {
+            // Check if local data is empty
+            const isLocalEmpty = records.length === 0;
+
+            if (isLocalEmpty) {
+                // Directly pull cloud data if local database is empty
+                await performCloudPullExtractionSequence(cloudDb);
+            } else {
+                // Perform regular timeline comparison and prompt user if needed
+                await checkTimelineMetricsAgainstCloudTarget(cloudDb, promptUser);
             }
+        } else {
+            // Case where user record does not exist on Supabase yet (New User)
+            await initializeBlankUserCloudDatabase();
         }
+    } catch (err) {
+        console.error('Sync check failed:', err);
+        setCloudStatus('☁ Sync Failure');
+    }
+}
 
         async function initializeBlankUserCloudDatabase() {
             if (!activeUserSession || !activeUserSession.user) return;
@@ -1445,6 +1455,6 @@
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4.3</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v4.4</div>
 </body>
 </html>
