@@ -1308,7 +1308,7 @@ function formatFileDate(isoString) {
             const password = document.getElementById('loginPassword').value;
 
             const syntheticEmail = `${username}${FAKE_EMAIL_DOMAIN}`;
-
+closeLoginModal();
             setCloudStatus('☁ Signing In...');
             const { data, error } = await supabaseClient.auth.signInWithPassword({
                 email: syntheticEmail,
@@ -1318,6 +1318,7 @@ function formatFileDate(isoString) {
             if (error) {
                 alert('Authentication failed: ' + error.message);
                 setCloudStatus('☁ Authentication Failed');
+                openLoginModal();
             } else {
                 closeLoginModal();
             }
