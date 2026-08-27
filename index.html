@@ -256,7 +256,7 @@
 
     <div id="monthsContainer"></div>
 
-    <div class="utility-toggle-header" onclick="toggleUtilityDrawer()"><span>Offline Data Options</span><span class="utility-arrow" id="utilArrow">▼</span></div>
+    <div class="utility-toggle-header" onclick="toggleUtilityDrawer()"><span>Data Options</span><span class="utility-arrow" id="utilArrow">▼</span></div>
     <div class="utility-card" id="utilityDrawerCard">
         
 <div class="utility-title">📢 Announcements</div>
@@ -1622,16 +1622,30 @@ async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
             }
         }
 
-        function triggerResetToScratch() {
-            if (!confirm('Clear local database?')) return;
-            localStorage.removeItem('ot_records');
-            localStorage.removeItem('ot_meta');
-            records = [];
-            meta = { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: localStorage.getItem('ot_app_theme') || 'light' };
-            localStorage.setItem('ot_records', JSON.stringify(records));
-            localStorage.setItem('ot_meta', JSON.stringify(meta));
-            location.reload();
-        }
+async function triggerResetToScratch() {
+    if (!confirm('Clear all data? This will wipe your local database and, if signed in, your cloud backup. This cannot be undone.')) return;
+    
+    // 1. Reset local state variables to empty/default
+    records = [];
+    meta = { 
+        defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', 
+        lastUpdated: Date.now(), 
+        theme: localStorage.getItem('ot_app_theme') || 'light' 
+    };
+    
+    // 2. If signed in, push this empty state to Supabase
+    if (activeUserSession) {
+        setCloudStatus('☁ Wiping Cloud Database...');
+        await performCloudWriteExecutionSequence();
+    } else {
+        // 3. If offline, just save the empty state to local storage
+        localStorage.setItem('ot_records', JSON.stringify(records));
+        localStorage.setItem('ot_meta', JSON.stringify(meta));
+    }
+    
+    // 4. Reload the page to reflect the clean slate
+    location.reload();
+}
 
         function exportToFile() {
             const data = { records, meta };
@@ -1677,6 +1691,6 @@ async function lookupAndSynchronizeCloudBackupStorageState(promptUser) {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.5</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.6</div>
 </body>
 </html>
