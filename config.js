@@ -60,5 +60,6 @@ for (let year = MIN_ALLOWED_YEAR; year <= MAX_ALLOWED_YEAR; year++) {
 // Master HOLIDAYS array used by index.html calculation logic
 const HOLIDAYS = [
     ...generatedFixedHolidays,
-    ...MOVABLE_HOLIDAYS
+    ...MOVABLE_HOLIDAYS,
+    ...GRAFEIAKO_ONLY_HOLIDAYS
 ];
