@@ -909,29 +909,33 @@ function calculateOvertime(startDt, endDt, multiplier) {
         const dd = String(current.getDate()).padStart(2, '0');
         const dateStr = `${yyyy}-${mm}-${dd}`;
 
-// Standard & Grafeiako holidays applying to the calculation
-const isStandardHoliday = (typeof HOLIDAYS !== 'undefined' && HOLIDAYS.includes(dateStr)); //[cite: 4]
+// Check holiday status per category
+const isStandardHoliday = (typeof HOLIDAYS !== 'undefined' && HOLIDAYS.includes(dateStr));
+const isGrafeiakoHoliday = (typeof GRAFEIAKO_ONLY_HOLIDAYS !== 'undefined' && GRAFEIAKO_ONLY_HOLIDAYS.includes(dateStr));
 
 if (multiplier === 'ΒΑΡΔΙΑ') {
-    const isSundayOrHoliday = (day === 0) || isStandardHoliday; //[cite: 4]
+    // Shifts only consider standard holidays & Sundays
+    const isSundayOrHoliday = (day === 0) || isStandardHoliday;
     if (isSundayOrHoliday) {
-        hoursToPay += stepHours * 1.8; //[cite: 4]
+        hoursToPay += stepHours * 1.8;
     } else {
-        hoursToPay += stepHours * 1.5; //[cite: 4]
+        hoursToPay += stepHours * 1.5;
     }
 } else if (multiplier === 'ΓΡΑΦΕΙΑΚΟ') {
-    const isSundayOrHoliday = (day === 0) || isStandardHoliday; //[cite: 4]
+    // Office hours consider standard holidays, office-only holidays, & Sundays
+    const isSundayOrHoliday = (day === 0) || isStandardHoliday || isGrafeiakoHoliday;
+    
     if (isSundayOrHoliday) {
-        hoursToPay += stepHours * 2.0; // All hours on holidays count at 2.0x rate[cite: 4]
+        hoursToPay += stepHours * 2.0;
     } else if (day === 6) { // Saturday
         if (hour < 13) {
-            hoursToPay += stepHours * 1.5; //[cite: 4]
+            hoursToPay += stepHours * 1.5;
         } else {
-            hoursToPay += stepHours * 2.0; //[cite: 4]
+            hoursToPay += stepHours * 2.0;
         }
-    } else { // Monday – Friday
+    } else { // Monday – Friday (regular non-holiday weekdays)
         if (hour < 7 || hour >= 17) {
-            hoursToPay += stepHours * 1.5; //[cite: 4]
+            hoursToPay += stepHours * 1.5;
         }
     }
 }
@@ -1694,6 +1698,6 @@ async function triggerResetToScratch() {
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.8</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v5.9</div>
 </body>
 </html>
