@@ -4,56 +4,61 @@
 const MIN_ALLOWED_YEAR = 2025;
 const MAX_ALLOWED_YEAR = 2027;
 
-// List of holiday dates that should be calculated with Sunday multipliers (YYYY-MM-DD)
+// Fixed annual holidays defined once (MM-DD)
+const FIXED_HOLIDAYS_MD = [
+    "01-01",
+    "01-06",
+    "03-25",
+    "04-01",
+    "05-01",
+    "08-15",
+    "10-01",
+    "10-28",
+    "12-25",
+    "12-26"
+];
+
+// Movable holidays specifically for ΓΡΑΦΕΙΑΚΟ only (YYYY-MM-DD)
+const GRAFEIAKO_ONLY_HOLIDAYS = [
+    "2025-06-09", //agiou pnevmatos - deftera kataklismou 2025
+    "2026-06-01", //agiou pnevmatos - deftera kataklismou 2026
+    "2027-06-21"  //agiou pnevmatos - deftera kataklismou 2027
+];
+
+// Movable holidays per year (YYYY-MM-DD)
+const MOVABLE_HOLIDAYS = [
+    // 2025
+    "2025-03-03", // kathara deftera
+    "2025-04-18", // megali paraskevi
+    "2025-04-19", // megalo savvato
+    "2025-04-20", // kiriaki tou pasxa
+    "2025-04-21", // deftera tou pasxa
+
+    // 2026
+    "2026-02-23", // kathara deftera
+    "2026-04-10", // megali paraskevi
+    "2026-04-11", // megalo savvato
+    "2026-04-12", // kiriaki tou pasxa
+    "2026-04-13", // deftera tou pasxa
+
+    // 2027
+    "2027-03-15", // kathara deftera
+    "2027-04-30", // megali paraskevi
+    "2027-05-01", // megalo savvato
+    "2027-05-02", // kiriaki tou pasxa
+    "2027-05-03"  // deftera tou pasxa
+];
+
+// Automatically build full fixed holiday dates for all allowed years
+const generatedFixedHolidays = [];
+for (let year = MIN_ALLOWED_YEAR; year <= MAX_ALLOWED_YEAR; year++) {
+    FIXED_HOLIDAYS_MD.forEach(md => {
+        generatedFixedHolidays.push(`${year}-${md}`);
+    });
+}
+
+// Master HOLIDAYS array used by index.html calculation logic
 const HOLIDAYS = [
-    "2025-01-01",
-    "2025-01-06",
-    "2025-03-25",
-    "2025-04-01",
-    "2025-05-01",
-    "2025-08-15",
-    "2025-10-01",
-    "2025-10-28",
-    "2025-12-25",
-    "2025-12-26",
-
-    "2025-03-03", // kathara deftera         // kiniti
-    "2025-04-18", // megali paraskevi        // kiniti
-    "2025-04-19", // megalo savvato          // kiniti
-    "2025-04-20", // kiriaki tou pasxa       // kiniti
-    "2025-04-21", // deftera tou pasxa       // kiniti
-
-    "2026-01-01",
-    "2026-01-06",
-    "2026-03-25",
-    "2026-04-01",
-    "2026-05-01",
-    "2026-08-15",
-    "2026-10-01",
-    "2026-10-28",
-    "2026-12-25",
-    "2026-12-26",
-
-    "2026-02-23", // kathara deftera         // kiniti
-    "2026-04-10", // megali paraskevi        // kiniti
-    "2026-04-11", // megalo savvato          // kiniti
-    "2026-04-12", // kiriaki tou pasxa       // kiniti
-    "2026-04-13", // deftera tou pasxa       // kiniti
-
-    "2027-01-01",
-    "2027-01-06",
-    "2027-03-25",
-    "2027-04-01",
-    "2027-05-01",
-    "2027-08-15",
-    "2027-10-01",
-    "2027-10-28",
-    "2027-12-25",
-    "2027-12-26",
-
-    "2027-03-15", // kathara deftera         // kiniti
-    "2027-04-30", // megali paraskevi        // kiniti
-    "2027-05-01", // megalo savvato          // kiniti
-    "2027-05-02", // kiriaki tou pasxa       // kiniti
-    "2027-05-03", // deftera tou pasxa       // kiniti
+    ...generatedFixedHolidays,
+    ...MOVABLE_HOLIDAYS
 ];
