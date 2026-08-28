@@ -61,5 +61,4 @@ for (let year = MIN_ALLOWED_YEAR; year <= MAX_ALLOWED_YEAR; year++) {
 const HOLIDAYS = [
     ...generatedFixedHolidays,
     ...MOVABLE_HOLIDAYS,
-    ...GRAFEIAKO_ONLY_HOLIDAYS
 ];
