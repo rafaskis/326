@@ -531,11 +531,9 @@ function exportToPDF(filterMode = 'all') {
     const timestamp = `${String(now.getFullYear()).slice(-2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
     const originalTitle = document.title;
     
-    // Adjust file title based on selected filter mode
     const modeSuffix = filterMode === 'unpaid' ? '_unpaid' : '_all';
     document.title = `overtime_report_${activeYear}${modeSuffix}-${timestamp}`;
 
-    // Filter year records based on the filterMode parameter
     const yearRecords = records.filter(r => {
         if (!r.startTime) return false;
         const matchesYear = new Date(r.startTime).getFullYear() === activeYear;
@@ -557,6 +555,36 @@ function exportToPDF(filterMode = 'all') {
             annualUnpaidToPay += (r.hoursToPay || 0);
         }
     });
+
+    // Dynamically build summary grid HTML based on filterMode
+    let summaryGridHtml = '';
+    if (filterMode === 'unpaid') {
+        summaryGridHtml = `
+            <div class="summary-grid-layout" style="grid-template-columns: 1fr;">
+                <div class="summary-card-box">
+                    <span class="summary-card-label">Pending Hours</span>
+                    <span class="summary-card-value" style="color: #dc2626;">${annualUnpaidToPay.toFixed(2)}h</span>
+                </div>
+            </div>
+        `;
+    } else {
+        summaryGridHtml = `
+            <div class="summary-grid-layout" style="grid-template-columns: repeat(3, 1fr);">
+                <div class="summary-card-box">
+                    <span class="summary-card-label">Total Payable Hours</span>
+                    <span class="summary-card-value">${annualTotalToPay.toFixed(2)}h</span>
+                </div>
+                <div class="summary-card-box">
+                    <span class="summary-card-label">Paid Hours</span>
+                    <span class="summary-card-value" style="color: #16a34a;">${annualPaidToPay.toFixed(2)}h</span>
+                </div>
+                <div class="summary-card-box">
+                    <span class="summary-card-label">Pending Hours</span>
+                    <span class="summary-card-value" style="color: #dc2626;">${annualUnpaidToPay.toFixed(2)}h</span>
+                </div>
+            </div>
+        `;
+    }
 
     let reportContentHtml = '';
 
@@ -675,7 +703,6 @@ function exportToPDF(filterMode = 'all') {
                 }
                 .summary-grid-layout {
                     display: grid;
-                    grid-template-columns: repeat(3, 1fr);
                     gap: 12px;
                     margin-bottom: 25px;
                 }
@@ -709,20 +736,7 @@ function exportToPDF(filterMode = 'all') {
                 <div style="font-size: 13px; color: #6b7280; font-weight: 500; margin-top: 4px;">${asOfTimestampString}</div>
             </div>
             
-            <div class="summary-grid-layout">
-                <div class="summary-card-box">
-                    <span class="summary-card-label">Total Payable Hours</span>
-                    <span class="summary-card-value">${annualTotalToPay.toFixed(2)}h</span>
-                </div>
-                <div class="summary-card-box">
-                    <span class="summary-card-label">Paid Hours</span>
-                    <span class="summary-card-value" style="color: #16a34a;">${annualPaidToPay.toFixed(2)}h</span>
-                </div>
-                <div class="summary-card-box">
-                    <span class="summary-card-label">Pending Hours</span>
-                    <span class="summary-card-value" style="color: #dc2626;">${annualUnpaidToPay.toFixed(2)}h</span>
-                </div>
-            </div>
+            ${summaryGridHtml}
 
             <div class="report-list-wrapper">
                 ${reportContentHtml}
