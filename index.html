@@ -180,7 +180,7 @@
             </select>
         </div>
         <button class="btn-theme-toggle" onclick="toggleDisplayTheme()">Theme</button>
-        <button class="btn-theme-toggle" onclick="exportToPDF()">📄 Export PDF</button>
+        <button class="btn-theme-toggle" onclick="promptPdfExportOptions()">📄 Export PDF</button>
     </div>
 </div>
 
@@ -517,230 +517,276 @@
         let collapsedMonths = {};
         let activeUserSession = null;
 
-        function exportToPDF() {
-            const now = new Date();
-            const pad = (n) => String(n).padStart(2, '0');
-            const liveDateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
-            const liveTimeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-            
-            const activeUsername = activeUserSession && activeUserSession.user && activeUserSession.user.email 
-                ? activeUserSession.user.email.replace(FAKE_EMAIL_DOMAIN, '') 
-                : 'User';
-            const asOfTimestampString = `for ${activeUsername} as of ${liveDateStr} ${liveTimeStr}`;
+function exportToPDF(filterMode = 'all') {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    const liveDateStr = `${pad(now.getDate())}/${pad(now.getMonth() + 1)}/${now.getFullYear()}`;
+    const liveTimeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    
+    const activeUsername = activeUserSession && activeUserSession.user && activeUserSession.user.email 
+        ? activeUserSession.user.email.replace(FAKE_EMAIL_DOMAIN, '') 
+        : 'User';
+    const asOfTimestampString = `for ${activeUsername} as of ${liveDateStr} ${liveTimeStr}`;
 
-            const timestamp = `${String(now.getFullYear()).slice(-2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-            const originalTitle = document.title;
-            document.title = `overtime_report_${activeYear}-${timestamp}`;
+    const timestamp = `${String(now.getFullYear()).slice(-2)}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+    const originalTitle = document.title;
+    
+    // Adjust file title based on selected filter mode
+    const modeSuffix = filterMode === 'unpaid' ? '_unpaid' : '_all';
+    document.title = `overtime_report_${activeYear}${modeSuffix}-${timestamp}`;
 
-            const yearRecords = records.filter(r => {
-                if (!r.startTime) return false;
-                return new Date(r.startTime).getFullYear() === activeYear;
-            });
+    // Filter year records based on the filterMode parameter
+    const yearRecords = records.filter(r => {
+        if (!r.startTime) return false;
+        const matchesYear = new Date(r.startTime).getFullYear() === activeYear;
+        const matchesPayment = filterMode === 'unpaid' ? !r.isPaid : true;
+        return matchesYear && matchesPayment;
+    });
 
-            let annualTotalWorked = 0;
-            let annualTotalToPay = 0;
-            let annualPaidToPay = 0;
-            let annualUnpaidToPay = 0;
+    let annualTotalWorked = 0;
+    let annualTotalToPay = 0;
+    let annualPaidToPay = 0;
+    let annualUnpaidToPay = 0;
 
-            yearRecords.forEach(r => {
-                annualTotalWorked += (r.hoursWorked || 0);
-                annualTotalToPay += (r.hoursToPay || 0);
-                if (r.isPaid) {
-                    annualPaidToPay += (r.hoursToPay || 0);
-                } else {
-                    annualUnpaidToPay += (r.hoursToPay || 0);
-                }
-            });
-
-            let reportContentHtml = '';
-
-            if (yearRecords.length === 0) {
-                reportContentHtml = '<p style="text-align: center; color: #666; font-size: 14px; margin-top: 30px;">No overtime records logged for this year.</p>';
-            } else {
-                for (let m = 0; m < 12; m++) {
-                    const monthRecords = records.filter(r => {
-                        if (!r.startTime) return false;
-                        const d = new Date(r.startTime);
-                        return d.getFullYear() === activeYear && d.getMonth() === m;
-                    }).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
-
-                    if (monthRecords.length === 0) continue;
-
-                    let monthWorked = 0;
-                    let monthToPay = 0;
-                    let monthPaid = 0;
-                    let monthUnpaid = 0;
-
-                    monthRecords.forEach(r => {
-                        monthWorked += (r.hoursWorked || 0);
-                        monthToPay += (r.hoursToPay || 0);
-                        if (r.isPaid) monthPaid += (r.hoursToPay || 0);
-                        else monthUnpaid += (r.hoursToPay || 0);
-                    });
-
-                    reportContentHtml += `
-                        <div style="margin-bottom: 22px; page-break-inside: avoid; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #ffffff;">
-                            <div style="background: #e2e8f0; padding: 10px 15px; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1;">
-                                <span style="color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">${MONTH_NAMES[m]}</span>
-                                <div style="font-size: 12px; display: flex; gap: 8px;">
-                                    <span style="background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">Total: ${monthToPay.toFixed(2)}h</span>
-                                    <span style="background: #dcfce7; color: #16a34a; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">Paid: ${monthPaid.toFixed(2)}h</span>
-                                    <span style="background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecaca;">Pending: ${monthUnpaid.toFixed(2)}h</span>
-                                </div>
-                            </div>
-                            <div>
-                    `;
-
-                    monthRecords.forEach(r => {
-                        const startFormatted = formatDisplayDate(r.startTime);
-                        const endFormatted = formatDisplayDate(r.endTime);
-                        const statusColor = r.isPaid ? '#16a34a' : '#dc2626';
-
-                        reportContentHtml += `
-                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #e5e7eb; font-size: 13px;">
-                                <div>
-                                    <div style="font-weight: 700; color: #111827;">
-                                        ${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span style="font-weight: normal; color: #6b7280;">(${r.name})</span>` : ''}
-                                        <span style="font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; margin-left: 6px;">${r.multiplier}</span>
-                                    </div>
-                                    <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
-                                        ${startFormatted} &ndash; ${endFormatted}
-                                    </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="font-weight: 700; color: ${statusColor};">
-                                        ${r.hoursToPay.toFixed(2)}h To Pay
-                                    </div>
-                                    <div style="font-size: 11px; color: #6b7280;">
-                                        Worked: ${r.hoursWorked.toFixed(2)}h | <span style="font-weight: 600; color: ${statusColor};">${r.isPaid ? 'PAID' : 'PENDING'}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    });
-
-                    reportContentHtml += `</div></div>`;
-                }
-            }
-
-            const printWindow = window.open('', '_blank');
-            if (!printWindow) {
-                alert("Please allow popups to export PDFs.");
-                document.title = originalTitle;
-                return;
-            }
-
-            printWindow.document.write(`
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>${document.title}</title>
-                    <style>
-                        body {
-                            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-                            color: #111827;
-                            background: #ffffff;
-                            padding: 20px;
-                            max-width: 700px;
-                            margin: 0 auto;
-                            -webkit-print-color-adjust: exact !important;
-                            print-color-adjust: exact !important;
-                        }
-                        .report-header-container {
-                            border-bottom: 2px solid #e5e7eb;
-                            padding-bottom: 14px;
-                            margin-bottom: 20px;
-                            text-align: center;
-                        }
-                        .report-title-main {
-                            margin: 0;
-                            font-size: 24px;
-                            font-weight: 800;
-                            color: #111827;
-                        }
-                        .report-subtitle-period {
-                            margin: 4px 0 0 0;
-                            font-size: 18px;
-                            font-weight: 600;
-                            color: #4b5563;
-                        }
-                        .summary-grid-layout {
-                            display: grid;
-                            grid-template-columns: repeat(3, 1fr);
-                            gap: 12px;
-                            margin-bottom: 25px;
-                        }
-                        .summary-card-box {
-                            border: 1px solid #e5e7eb;
-                            padding: 12px;
-                            border-radius: 8px;
-                            text-align: center;
-                            background: #f9fafb;
-                        }
-                        .summary-card-label {
-                            font-size: 10px;
-                            color: #6b7280;
-                            text-transform: uppercase;
-                            font-weight: 700;
-                            letter-spacing: 0.5px;
-                            margin-bottom: 4px;
-                            display: block;
-                        }
-                        .summary-card-value {
-                            font-size: 18px;
-                            font-weight: 800;
-                            color: #111827;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="report-header-container">
-                        <h2 class="report-title-main">Overtime Summary Report</h2>
-                        <div class="report-subtitle-period">Year ${activeYear}</div>
-                        <div style="font-size: 13px; color: #6b7280; font-weight: 500; margin-top: 4px;">${asOfTimestampString}</div>
-                    </div>
-                    
-                    <div class="summary-grid-layout">
-                        <div class="summary-card-box">
-                            <span class="summary-card-label">Total Payable Hours</span>
-                            <span class="summary-card-value">${annualTotalToPay.toFixed(2)}h</span>
-                        </div>
-                        <div class="summary-card-box">
-                            <span class="summary-card-label">Paid Hours</span>
-                            <span class="summary-card-value" style="color: #16a34a;">${annualPaidToPay.toFixed(2)}h</span>
-                        </div>
-                        <div class="summary-card-box">
-                            <span class="summary-card-label">Pending Hours</span>
-                            <span class="summary-card-value" style="color: #dc2626;">${annualUnpaidToPay.toFixed(2)}h</span>
-                        </div>
-                    </div>
-
-                    <div class="report-list-wrapper">
-                        ${reportContentHtml}
-                    </div>
-
-                    <script>
-                        function executeSecurePrintProcess() {
-                            setTimeout(function() {
-                                window.print();
-                            }, 300);
-                        }
-                        if (document.readyState === 'complete') {
-                            executeSecurePrintProcess();
-                        } else {
-                            window.addEventListener('load', executeSecurePrintProcess);
-                        }
-                    <\/script>
-                </body>
-                </html>
-            `);
-
-            printWindow.document.close();
-            
-            setTimeout(() => {
-                document.title = originalTitle;
-            }, 1000);
+    yearRecords.forEach(r => {
+        annualTotalWorked += (r.hoursWorked || 0);
+        annualTotalToPay += (r.hoursToPay || 0);
+        if (r.isPaid) {
+            annualPaidToPay += (r.hoursToPay || 0);
+        } else {
+            annualUnpaidToPay += (r.hoursToPay || 0);
         }
+    });
+
+    let reportContentHtml = '';
+
+    if (yearRecords.length === 0) {
+        reportContentHtml = `<p style="text-align: center; color: #666; font-size: 14px; margin-top: 30px;">
+            No ${filterMode === 'unpaid' ? 'unpaid ' : ''}overtime records logged for this year.
+        </p>`;
+    } else {
+        for (let m = 0; m < 12; m++) {
+            const monthRecords = yearRecords.filter(r => {
+                const d = new Date(r.startTime);
+                return d.getMonth() === m;
+            }).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+            if (monthRecords.length === 0) continue;
+
+            let monthWorked = 0;
+            let monthToPay = 0;
+            let monthPaid = 0;
+            let monthUnpaid = 0;
+
+            monthRecords.forEach(r => {
+                monthWorked += (r.hoursWorked || 0);
+                monthToPay += (r.hoursToPay || 0);
+                if (r.isPaid) monthPaid += (r.hoursToPay || 0);
+                else monthUnpaid += (r.hoursToPay || 0);
+            });
+
+            reportContentHtml += `
+                <div style="margin-bottom: 22px; page-break-inside: avoid; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; background: #ffffff;">
+                    <div style="background: #e2e8f0; padding: 10px 15px; font-weight: bold; font-size: 14px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #cbd5e1;">
+                        <span style="color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">${MONTH_NAMES[m]}</span>
+                        <div style="font-size: 12px; display: flex; gap: 8px;">
+                            <span style="background: #ffffff; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1;">Total: ${monthToPay.toFixed(2)}h</span>
+                            <span style="background: #dcfce7; color: #16a34a; padding: 2px 6px; border-radius: 4px; border: 1px solid #bbf7d0;">Paid: ${monthPaid.toFixed(2)}h</span>
+                            <span style="background: #fee2e2; color: #dc2626; padding: 2px 6px; border-radius: 4px; border: 1px solid #fecaca;">Pending: ${monthUnpaid.toFixed(2)}h</span>
+                        </div>
+                    </div>
+                    <div>
+            `;
+
+            monthRecords.forEach(r => {
+                const startFormatted = formatDisplayDate(r.startTime);
+                const endFormatted = formatDisplayDate(r.endTime);
+                const statusColor = r.isPaid ? '#16a34a' : '#dc2626';
+
+                reportContentHtml += `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; border-bottom: 1px solid #e5e7eb; font-size: 13px;">
+                        <div>
+                            <div style="font-weight: 700; color: #111827;">
+                                ${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span style="font-weight: normal; color: #6b7280;">(${r.name})</span>` : ''}
+                                <span style="font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; margin-left: 6px;">${r.multiplier}</span>
+                            </div>
+                            <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
+                                ${startFormatted} &ndash; ${endFormatted}
+                            </div>
+                        </div>
+                        <div style="text-align: right;">
+                            <div style="font-weight: 700; color: ${statusColor};">
+                                ${r.hoursToPay.toFixed(2)}h To Pay
+                            </div>
+                            <div style="font-size: 11px; color: #6b7280;">
+                                Worked: ${r.hoursWorked.toFixed(2)}h | <span style="font-weight: 600; color: ${statusColor};">${r.isPaid ? 'PAID' : 'PENDING'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            reportContentHtml += `</div></div>`;
+        }
+    }
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+        alert("Please allow popups to export PDFs.");
+        document.title = originalTitle;
+        return;
+    }
+
+    const reportTitle = filterMode === 'unpaid' ? 'Unpaid Overtime Summary Report' : 'Overtime Summary Report';
+
+    printWindow.document.write(`
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>${document.title}</title>
+            <style>
+                body {
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    color: #111827;
+                    background: #ffffff;
+                    padding: 20px;
+                    max-width: 700px;
+                    margin: 0 auto;
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
+                }
+                .report-header-container {
+                    border-bottom: 2px solid #e5e7eb;
+                    padding-bottom: 14px;
+                    margin-bottom: 20px;
+                    text-align: center;
+                }
+                .report-title-main {
+                    margin: 0;
+                    font-size: 24px;
+                    font-weight: 800;
+                    color: #111827;
+                }
+                .report-subtitle-period {
+                    margin: 4px 0 0 0;
+                    font-size: 18px;
+                    font-weight: 600;
+                    color: #4b5563;
+                }
+                .summary-grid-layout {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 12px;
+                    margin-bottom: 25px;
+                }
+                .summary-card-box {
+                    border: 1px solid #e5e7eb;
+                    padding: 12px;
+                    border-radius: 8px;
+                    text-align: center;
+                    background: #f9fafb;
+                }
+                .summary-card-label {
+                    font-size: 10px;
+                    color: #6b7280;
+                    text-transform: uppercase;
+                    font-weight: 700;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 4px;
+                    display: block;
+                }
+                .summary-card-value {
+                    font-size: 18px;
+                    font-weight: 800;
+                    color: #111827;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="report-header-container">
+                <h2 class="report-title-main">${reportTitle}</h2>
+                <div class="report-subtitle-period">Year ${activeYear}</div>
+                <div style="font-size: 13px; color: #6b7280; font-weight: 500; margin-top: 4px;">${asOfTimestampString}</div>
+            </div>
+            
+            <div class="summary-grid-layout">
+                <div class="summary-card-box">
+                    <span class="summary-card-label">Total Payable Hours</span>
+                    <span class="summary-card-value">${annualTotalToPay.toFixed(2)}h</span>
+                </div>
+                <div class="summary-card-box">
+                    <span class="summary-card-label">Paid Hours</span>
+                    <span class="summary-card-value" style="color: #16a34a;">${annualPaidToPay.toFixed(2)}h</span>
+                </div>
+                <div class="summary-card-box">
+                    <span class="summary-card-label">Pending Hours</span>
+                    <span class="summary-card-value" style="color: #dc2626;">${annualUnpaidToPay.toFixed(2)}h</span>
+                </div>
+            </div>
+
+            <div class="report-list-wrapper">
+                ${reportContentHtml}
+            </div>
+
+            <script>
+                function executeSecurePrintProcess() {
+                    setTimeout(function() {
+                        window.print();
+                    }, 300);
+                }
+                if (document.readyState === 'complete') {
+                    executeSecurePrintProcess();
+                } else {
+                    window.addEventListener('load', executeSecurePrintProcess);
+                }
+            <\/script>
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+    
+    setTimeout(() => {
+        document.title = originalTitle;
+    }, 1000);
+}
+
+        function promptPdfExportOptions() {
+    const overlay = document.getElementById('customChoiceOverlay');
+    const message = document.getElementById('choiceOverlayMessage');
+    const container = document.getElementById('choiceButtonsContainer');
+
+    message.innerHTML = '<strong>Export PDF Options</strong><br><br>Which records would you like to export?';
+    container.className = 'choice-buttons-row';
+    container.innerHTML = `
+        <button class="btn-choice btn-choice-left" id="btnExportAll">All Records</button>
+        <button class="btn-choice btn-choice-right" id="btnExportUnpaid">Unpaid Only</button>
+    `;
+
+    const btnAll = document.getElementById('btnExportAll');
+    const btnUnpaid = document.getElementById('btnExportUnpaid');
+
+    const cleanup = () => {
+        btnAll.removeEventListener('click', onAll);
+        btnUnpaid.removeEventListener('click', onUnpaid);
+        overlay.style.display = 'none';
+        resetContainerToDefaultTemplate(container);
+    };
+
+    const onAll = () => {
+        cleanup();
+        exportToPDF('all');
+    };
+
+    const onUnpaid = () => {
+        cleanup();
+        exportToPDF('unpaid');
+    };
+
+    btnAll.addEventListener('click', onAll);
+    btnUnpaid.addEventListener('click', onUnpaid);
+    overlay.style.display = 'flex';
+}
 
         function populateHourOptions() {
             const startHourSelect = document.getElementById('recStartHour');
@@ -1706,6 +1752,6 @@
             reader.readAsText(file);
         }
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v6.1</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v6.2</div>
 </body>
 </html>
