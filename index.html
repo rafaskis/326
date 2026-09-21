@@ -170,18 +170,30 @@
         </div>
     </div>
 
-    <!-- Group 2: App Preferences & Actions -->
-    <div class="control-group">
-        <div class="default-multiplier-wrapper">
-            <span>Default:</span>
-            <select id="defaultMultiplierSelect" onchange="updateDefaultMultiplier(this.value)">
-                <option value="ΓΡΑΦΕΙΑΚΟ">ΓΡΑΦΕΙΑΚΟ</option>
-                <option value="ΒΑΡΔΙΑ">ΒΑΡΔΙΑ</option>
-            </select>
-        </div>
-        <button class="btn-theme-toggle" onclick="toggleDisplayTheme()">Theme</button>
-        <button class="btn-theme-toggle" onclick="promptPdfExportOptions()">📄 Export PDF</button>
+<!-- Group 2: App Preferences & Actions -->
+<div class="control-group">
+    <div class="default-multiplier-wrapper">
+        <span>Order:</span>
+        <select id="sortOrderSelect" onchange="updateSortOrder(this.value)">
+            <option value="desc">Newest First</option>
+            <option value="asc">Oldest First</option>
+        </select>
     </div>
+    <label class="checkbox-label" style="font-size: 12px;">
+        <input type="checkbox" id="hideEmptyMonthsCheck" onchange="updateHideEmptyMonths(this.checked)">
+        <span>Hide Empty</span>
+    </label>
+    <div class="default-multiplier-wrapper">
+        <span>Default:</span>
+        <select id="defaultMultiplierSelect" onchange="updateDefaultMultiplier(this.value)">
+            <option value="ΓΡΑΦΕΙΑΚΟ">ΓΡΑΦΕΙΑΚΟ</option>
+            <option value="ΒΑΡΔΙΑ">ΒΑΡΔΙΑ</option>
+        </select>
+    </div>
+    <button class="btn-theme-toggle" onclick="toggleDisplayTheme()">Theme</button>
+    <button class="btn-theme-toggle" onclick="promptPdfExportOptions()">📄 Export PDF</button>
+</div>
+    
 </div>
 
     <div class="year-nav-container">
@@ -511,7 +523,7 @@
         }
 
         let records = [];
-        let meta = { defaultMultiplier: "ΓΡΑΦΕΙΑΚΟ", lastUpdated: 0, theme: "light" };
+        let meta = { defaultMultiplier: "ΓΡΑΦΕΙΑΚΟ", lastUpdated: 0, theme: "light", sortOrder: "desc", hideEmptyMonths: false };
         let activeYear = new Date().getFullYear();
         let editingRecordId = null;
         let collapsedMonths = {};
@@ -856,6 +868,15 @@ function exportToPDF(filterMode = 'all') {
             
             document.getElementById('yearDisplay').innerText = activeYear;
             document.getElementById('defaultMultiplierSelect').value = meta.defaultMultiplier;
+
+            // Set UI elements based on saved preferences
+    if (document.getElementById('sortOrderSelect')) {
+        document.getElementById('sortOrderSelect').value = meta.sortOrder || 'desc';
+    }
+    if (document.getElementById('hideEmptyMonthsCheck')) {
+        document.getElementById('hideEmptyMonthsCheck').checked = !!meta.hideEmptyMonths;
+    }
+            
             render();
             initializeSupabaseAuth();
         };
@@ -1170,103 +1191,121 @@ function exportToPDF(filterMode = 'all') {
             render();
         }
 
-        function render() {
-            const container = document.getElementById('monthsContainer');
-            container.innerHTML = '';
+function render() {
+    const container = document.getElementById('monthsContainer');
+    container.innerHTML = '';
 
-            for (let m = 0; m < 12; m++) {
-                const monthRecords = records.filter(r => {
-                    if (!r.startTime) return false;
-                    const d = new Date(r.startTime);
-                    return d.getFullYear() === activeYear && d.getMonth() === m;
-                }).sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+    const sortOrder = meta.sortOrder || 'desc';
+    const hideEmpty = !!meta.hideEmptyMonths;
 
-                let totalHours = 0;
-                let paidHours = 0;
-                let unpaidHours = 0;
+    // Generate array of month indices [0..11]
+    let monthIndices = Array.from({ length: 12 }, (_, i) => i);
+    if (sortOrder === 'desc') {
+        monthIndices.reverse(); // 11 down to 0
+    }
 
-                monthRecords.forEach(r => {
-                    totalHours += r.hoursToPay;
-                    if (r.isPaid) {
-                        paidHours += r.hoursToPay;
-                    } else {
-                        unpaidHours += r.hoursToPay;
-                    }
-                });
+    monthIndices.forEach(m => {
+        const monthRecords = records.filter(r => {
+            if (!r.startTime) return false;
+            const d = new Date(r.startTime);
+            return d.getFullYear() === activeYear && d.getMonth() === m;
+        }).sort((a, b) => {
+            const dateA = new Date(a.startTime);
+            const dateB = new Date(b.startTime);
+            return sortOrder === 'asc' ? dateA - dateB : dateB - dateA;
+        });
 
-                const isCollapsed = collapsedMonths[m] !== undefined ? collapsedMonths[m] : (unpaidHours === 0);
-
-                const monthCard = document.createElement('div');
-                monthCard.className = "month-card";
-
-                const header = document.createElement('div');
-                header.className = "month-header";
-                header.onclick = () => toggleMonthCollapse(m);
-
-                header.innerHTML = `
-                    <div class="month-title">
-                        <span>${isCollapsed ? '▶' : '▼'}</span>
-                        <span>${MONTH_NAMES[m]}</span>
-                    </div>
-                    <div class="month-stats">
-                        <span class="stat-badge">Total: ${totalHours.toFixed(2)}h</span>
-                        <span class="stat-badge paid">Paid: ${paidHours.toFixed(2)}h</span>
-                        <span class="stat-badge unpaid">Pending: ${unpaidHours.toFixed(2)}h</span>
-                    </div>
-                `;
-
-                monthCard.appendChild(header);
-
-                if (!isCollapsed) {
-                    const list = document.createElement('div');
-                    list.className = "record-list";
-
-                    if (monthRecords.length === 0) {
-                        list.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:8px;">No records registered.</div>`;
-                    } else {
-                        monthRecords.forEach(r => {
-                            const startFormatted = formatDisplayDate(r.startTime);
-                            const endFormatted = formatDisplayDate(r.endTime);
-
-                            const item = document.createElement('div');
-                            item.className = `record-item ${r.isPaid ? 'is-paid' : ''}`;
-                            item.innerHTML = `
-                                <div class="record-top">
-                                    <div class="record-title">${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span class="record-id">(${r.name})</span>` : ''}</div>
-                                    <span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.multiplier}</span>
-                                </div>
-                                <div class="record-details">
-                                    <div>Start: <strong>${startFormatted}</strong></div>
-                                    <div>End: <strong>${endFormatted}</strong></div>
-                                    <div>Worked: <strong>${r.hoursWorked}h</strong></div>
-                                    <div>To Pay: <strong>${r.hoursToPay}h</strong></div>
-                                </div>
-<div class="record-actions">
-    <div style="display: flex; align-items: center; gap: 8px; flex: 1; margin-right: 8px;">
-        <input type="text" 
-               placeholder="Paid Notes" 
-               value="${r.paidNotes || ''}" 
-               onchange="updatePaidNotes('${r.id}', this.value)" 
-               style="max-width: 180px; padding: 4px 8px; font-size: 12px; height: 32px;">
-        <label class="checkbox-label">
-            <input type="checkbox" ${r.isPaid ? 'checked' : ''} onchange="togglePaidStatus('${r.id}')">
-            <span>Paid</span>
-        </label>
-    </div>
-    <div class="action-btns">
-        <button class="btn-icon btn-edit" onclick="openEditMode('${r.id}')">📝 Edit</button>
-        <button class="btn-icon btn-delete" onclick="deleteRecord('${r.id}')">✕ Delete</button>
-    </div>
-</div>
-                            `;
-                            list.appendChild(item);
-                        });
-                    }
-                    monthCard.appendChild(list);
-                }
-                container.appendChild(monthCard);
-            }
+        // Skip rendering empty months if toggled ON
+        if (hideEmpty && monthRecords.length === 0) {
+            return;
         }
+
+        let totalHours = 0;
+        let paidHours = 0;
+        let unpaidHours = 0;
+
+        monthRecords.forEach(r => {
+            totalHours += r.hoursToPay;
+            if (r.isPaid) {
+                paidHours += r.hoursToPay;
+            } else {
+                unpaidHours += r.hoursToPay;
+            }
+        });
+
+        const isCollapsed = collapsedMonths[m] !== undefined ? collapsedMonths[m] : (unpaidHours === 0);
+
+        const monthCard = document.createElement('div');
+        monthCard.className = "month-card";
+
+        const header = document.createElement('div');
+        header.className = "month-header";
+        header.onclick = () => toggleMonthCollapse(m);
+
+        header.innerHTML = `
+            <div class="month-title">
+                <span>${isCollapsed ? '▶' : '▼'}</span>
+                <span>${MONTH_NAMES[m]}</span>
+            </div>
+            <div class="month-stats">
+                <span class="stat-badge">Total: ${totalHours.toFixed(2)}h</span>
+                <span class="stat-badge paid">Paid: ${paidHours.toFixed(2)}h</span>
+                <span class="stat-badge unpaid">Pending: ${unpaidHours.toFixed(2)}h</span>
+            </div>
+        `;
+
+        monthCard.appendChild(header);
+
+        if (!isCollapsed) {
+            const list = document.createElement('div');
+            list.className = "record-list";
+
+            if (monthRecords.length === 0) {
+                list.innerHTML = `<div style="text-align:center; font-size:12px; color:var(--text-muted); padding:8px;">No records registered.</div>`;
+            } else {
+                monthRecords.forEach(r => {
+                    const startFormatted = formatDisplayDate(r.startTime);
+                    const endFormatted = formatDisplayDate(r.endTime);
+
+                    const item = document.createElement('div');
+                    item.className = `record-item ${r.isPaid ? 'is-paid' : ''}`;
+                    item.innerHTML = `
+                        <div class="record-top">
+                            <div class="record-title">${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span class="record-id">(${r.name})</span>` : ''}</div>
+                            <span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.multiplier}</span>
+                        </div>
+                        <div class="record-details">
+                            <div>Start: <strong>${startFormatted}</strong></div>
+                            <div>End: <strong>${endFormatted}</strong></div>
+                            <div>Worked: <strong>${r.hoursWorked}h</strong></div>
+                            <div>To Pay: <strong>${r.hoursToPay}h</strong></div>
+                        </div>
+                        <div class="record-actions">
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1; margin-right: 8px;">
+                                <input type="text" 
+                                       placeholder="Paid Notes" 
+                                       value="${r.paidNotes || ''}" 
+                                       onchange="updatePaidNotes('${r.id}', this.value)" 
+                                       style="max-width: 180px; padding: 4px 8px; font-size: 12px; height: 32px;">
+                                <label class="checkbox-label">
+                                    <input type="checkbox" ${r.isPaid ? 'checked' : ''} onchange="togglePaidStatus('${r.id}')">
+                                    <span>Paid</span>
+                                </label>
+                            </div>
+                            <div class="action-btns">
+                                <button class="btn-icon btn-edit" onclick="openEditMode('${r.id}')">📝 Edit</button>
+                                <button class="btn-icon btn-delete" onclick="deleteRecord('${r.id}')">✕ Delete</button>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(item);
+                });
+            }
+            monthCard.appendChild(list);
+        }
+        container.appendChild(monthCard);
+    });
+}
 
         // -------------------------------------------------------------
         // SUPABASE AUTHENTICATION & SYNC MANAGEMENT
@@ -1765,7 +1804,22 @@ function exportToPDF(filterMode = 'all') {
             };
             reader.readAsText(file);
         }
+
+async function updateSortOrder(val) {
+    meta.sortOrder = val;
+    saveStateToLocalStorage();
+    render();
+    await silentlyExecuteCloudSyncEngineCheck();
+}
+
+async function updateHideEmptyMonths(val) {
+    meta.hideEmptyMonths = val;
+    saveStateToLocalStorage();
+    render();
+    await silentlyExecuteCloudSyncEngineCheck();
+}
+        
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v6.2</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v7</div>
 </body>
 </html>
