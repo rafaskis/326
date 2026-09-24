@@ -1,8 +1,8 @@
 // Global Configuration for Overtime Tracker
 
 // Allowed navigation year limits
-const MIN_ALLOWED_YEAR = 2025;
-const MAX_ALLOWED_YEAR = 2027;
+const MIN_ALLOWED_YEAR = 2026;
+const MAX_ALLOWED_YEAR = 2026;
 
 // Fixed annual holidays defined once (MM-DD)
 const FIXED_HOLIDAYS_MD = [
