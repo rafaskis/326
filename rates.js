@@ -1,16 +1,14 @@
 // Overtime Hourly Rates per Scale and Year
 const OVERTIME_RATES_BY_YEAR = {
     2026: {
+        "A1": 9.49,
+        "A2": 9.89,
         "A3": 10.72,
-        "A4": 11.46,
         "A5": 12.63,
         "A5(ii)": 13.20,
         "A5(iii)": 13.48,
-        "A6": 14.76,
-        "A6(ii)": 15.37,
         "A7": 16.56,
         "A7(ii)": 17.22,
-        "A7(iv)": 17.88,
         "A8": 18.18,
         "A8(i)": 18.53,
         "A8(ii)": 18.88,
