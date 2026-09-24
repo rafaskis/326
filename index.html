@@ -887,20 +887,24 @@ function exportToPDF(filterMode = 'all') {
             await silentlyExecuteCloudSyncEngineCheck();
         }
 
-        window.onload = function() {
-            if (!activeYear) {
-                activeYear = new Date().getFullYear(); 
-            }
-            populateHourOptions();
-            loadLocalStorageCache();
-            normalizeLegacyRecords(); // Ensure old records get default scale/gross money
-    populateScaleDropdowns(); // <-- ADD THIS LINE
-            initializeSavedDisplayTheme();
-            
-            document.getElementById('yearDisplay').innerText = activeYear;
-            document.getElementById('defaultMultiplierSelect').value = meta.defaultMultiplier;
+window.onload = function() {
+    if (!activeYear) {
+        activeYear = new Date().getFullYear(); 
+    }
+    populateHourOptions();
+    loadLocalStorageCache();
+    normalizeLegacyRecords(); 
+    populateScaleDropdowns(); 
+    initializeSavedDisplayTheme();
+    
+    document.getElementById('yearDisplay').innerText = activeYear;
+    document.getElementById('defaultMultiplierSelect').value = meta.defaultMultiplier;
+    
+    // <-- ADD THIS LINE to set the top dropdown value from saved meta
+    if (document.getElementById('defaultScaleSelect')) {
+        document.getElementById('defaultScaleSelect').value = meta.defaultScale || "A5";
+    }
 
-            // Set UI elements based on saved preferences
     if (document.getElementById('sortOrderSelect')) {
         document.getElementById('sortOrderSelect').value = meta.sortOrder || 'desc';
     }
@@ -908,9 +912,9 @@ function exportToPDF(filterMode = 'all') {
         document.getElementById('hideEmptyMonthsCheck').checked = !!meta.hideEmptyMonths;
     }
             
-            render();
-            initializeSupabaseAuth();
-        };
+    render();
+    initializeSupabaseAuth();
+};
 
         function loadLocalStorageCache() {
             const cacheRecords = localStorage.getItem('ot_records');
@@ -931,6 +935,12 @@ function exportToPDF(filterMode = 'all') {
             saveStateToLocalStorage();
             silentlyExecuteCloudSyncEngineCheck();
         }
+
+        async function updateDefaultScale(val) {
+    meta.defaultScale = val;
+    saveStateToLocalStorage();
+    await silentlyExecuteCloudSyncEngineCheck();
+}
 
         function changeYear(delta) {
             const targetYear = activeYear + delta;
@@ -1082,22 +1092,28 @@ function exportToPDF(filterMode = 'all') {
             return baseDate.toISOString();
         }
 
-        function openCreateMode() {
-            editingRecordId = null;
-            document.getElementById('recName').value = '';
-            document.getElementById('recID').value = '';
-            
-            setDateTimeFields('recStart', null);
-            setDateTimeFields('recEnd', null);
+function openCreateMode() {
+    editingRecordId = null;
+    document.getElementById('recName').value = '';
+    document.getElementById('recID').value = '';
+    
+    setDateTimeFields('recStart', null);
+    setDateTimeFields('recEnd', null);
 
-            document.getElementById('recMultiplier').value = meta.defaultMultiplier;
-            document.getElementById('formSubmitBtn').innerText = "Save Overtime Record";
-            document.getElementById('recordFormCard').style.display = 'block';
-            document.getElementById('formTriggerBtn').style.display = 'none';
-document.getElementById('recScale').value = meta.defaultScale || "A5";
-        }
+    document.getElementById('recMultiplier').value = meta.defaultMultiplier;
+    
+    // <-- UPDATE THIS PART to use the saved default scale preference
+    const defaultScaleVal = (document.getElementById('defaultScaleSelect') && document.getElementById('defaultScaleSelect').value) 
+        || meta.defaultScale 
+        || "A5";
+    document.getElementById('recScale').value = defaultScaleVal;
 
-        function openEditMode(id) {
+    document.getElementById('formSubmitBtn').innerText = "Save Overtime Record";
+    document.getElementById('recordFormCard').style.display = 'block';
+    document.getElementById('formTriggerBtn').style.display = 'none';
+}
+
+function openEditMode(id) {
             const rec = records.find(r => r.id === id);
             if (!rec) return;
 
@@ -1123,6 +1139,10 @@ document.getElementById('recScale').value = meta.defaultScale || "A5";
             }
             
             document.getElementById('recMultiplier').value = rec.multiplier;
+            
+            // <-- ADD THIS LINE to load the record's specific scale into the form
+            document.getElementById('recScale').value = rec.scale || meta.defaultScale || "A5";
+
             document.getElementById('formSubmitBtn').innerText = "Update Record";
             document.getElementById('recordFormCard').style.display = 'block';
             document.getElementById('formTriggerBtn').style.display = 'none';
