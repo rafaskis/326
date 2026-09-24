@@ -184,21 +184,23 @@
         <input type="checkbox" id="hideEmptyMonthsCheck" onchange="updateHideEmptyMonths(this.checked)">
         <span>Hide Empty</span>
     </label>
-    <div class="default-multiplier-wrapper">
+<div class="default-multiplier-wrapper">
         <span>Default:</span>
         <select id="defaultMultiplierSelect" onchange="updateDefaultMultiplier(this.value)">
             <option value="ΓΡΑΦΕΙΑΚΟ">ΓΡΑΦΕΙΑΚΟ</option>
             <option value="ΒΑΡΔΙΑ">ΒΑΡΔΙΑ</option>
         </select>
-<span>Κλίμακα:</span>
-    <select id="defaultScaleSelect" onchange="updateDefaultScale(this.value)">
-        <!-- Options will be populated dynamically or statically from the scale keys -->
-    </select>
+    </div>
+    <div class="default-multiplier-wrapper">
+        <span>Κλίμακα:</span>
+        <select id="defaultScaleSelect" onchange="updateDefaultScale(this.value)">
+            <!-- Options populated dynamically via populateScaleDropdowns() -->
+        </select>
     </div>
     <button class="btn-theme-toggle" onclick="toggleDisplayTheme()">Theme</button>
     <button class="btn-theme-toggle" onclick="promptPdfExportOptions()">📄 Export PDF</button>
 </div>
-    
+    </div>
 
     <div class="year-nav-container">
         <button class="btn-nav-arrow" onclick="changeYear(-1)">◀</button>
