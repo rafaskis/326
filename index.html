@@ -892,6 +892,8 @@ function exportToPDF(filterMode = 'all') {
             }
             populateHourOptions();
             loadLocalStorageCache();
+            normalizeLegacyRecords(); // Ensure old records get default scale/gross money
+    populateScaleDropdowns(); // <-- ADD THIS LINE
             initializeSavedDisplayTheme();
             
             document.getElementById('yearDisplay').innerText = activeYear;
@@ -914,6 +916,7 @@ function exportToPDF(filterMode = 'all') {
             const cacheMeta = localStorage.getItem('ot_meta');
             if (cacheRecords) records = JSON.parse(cacheRecords);
             if (cacheMeta) meta = JSON.parse(cacheMeta);
+            normalizeLegacyRecords();
         }
 
         function saveStateToLocalStorage() {
@@ -935,6 +938,7 @@ function exportToPDF(filterMode = 'all') {
 
             activeYear = targetYear;
             document.getElementById('yearDisplay').innerText = activeYear;
+            populateScaleDropdowns(); // <-- ADD THIS LINE to refresh rates for the new year if applicable
             render();
         }
 
@@ -1130,66 +1134,70 @@ document.getElementById('recScale').value = meta.defaultScale || "A5";
             editingRecordId = null;
         }
 
-        async function processFormSubmit() {
-            const name = document.getElementById('recName').value.trim();
-            const idCode = document.getElementById('recID').value.trim();
-            const startDateVal = document.getElementById('recStartDate').value;
-const scale = document.getElementById('recScale').value;
-const recordYear = new Date(startVal).getFullYear();
-const grossMoney = calculateGrossPay(recordYear, scale, computed.hoursToPay);
-            if (!startDateVal) {
-                alert("Please select Start Date.");
-                return;
-            }
+async function processFormSubmit() {
+    const name = document.getElementById('recName').value.trim();
+    const idCode = document.getElementById('recID').value.trim();
+    const startDateVal = document.getElementById('recStartDate').value;
 
-            const startVal = buildISOFromFields('recStart');
-            const endVal = buildISOFromFields('recEnd');
-            const multiplier = document.getElementById('recMultiplier').value;
+    if (!startDateVal) {
+        alert("Please select Start Date.");
+        return;
+    }
 
-            const startDateObj = new Date(startVal);
-            const endDateObj = new Date(endVal);
+    // Declare these BEFORE using them in calculations
+    const startVal = buildISOFromFields('recStart');
+    const endVal = document.getElementById('recEndHour') ? buildISOFromFields('recEnd') : startVal; 
+    const multiplier = document.getElementById('recMultiplier').value;
+    const scale = document.getElementById('recScale').value;
 
-            if (endDateObj <= startDateObj) {
-                alert("Time Ended must be later than Time Started.");
-                return;
-            }
+    const startDateObj = new Date(startVal);
+    const endDateObj = new Date(endVal);
 
-            const computed = calculateOvertime(startVal, endVal, multiplier);
+    if (endDateObj <= startDateObj) {
+        alert("Time Ended must be later than Time Started.");
+        return;
+    }
 
-            if (editingRecordId) {
-                const rec = records.find(r => r.id === editingRecordId);
-                if (rec) {
-                    rec.name = name;
-                    rec.idCode = idCode;
-                    rec.startTime = startVal;
-                    rec.endTime = endVal;
-                    rec.multiplier = multiplier;
-                    rec.hoursWorked = computed.hoursWorked;
-                    rec.hoursToPay = computed.hoursToPay;
-                }
-            } else {
-                const newRecord = {
-                    id: 'rec_' + Math.random().toString(36).substr(2, 9),
-                    name,
-                    idCode,
-                    startTime: startVal,
-                    endTime: endVal,
-                    multiplier,
-                    hoursWorked: computed.hoursWorked,
-                    hoursToPay: computed.hoursToPay,
-                    isPaid: false,
-                    paidNotes: '',
-scale,
-    grossMoney
-                };
-                records.push(newRecord);
-            }
+    const computed = calculateOvertime(startVal, endVal, multiplier);
+    const recordYear = new Date(startVal).getFullYear();
+    const grossMoney = calculateGrossPay(recordYear, scale, computed.hoursToPay);
 
-            saveStateToLocalStorage();
-            closeFormDisplay();
-            render();
-            await silentlyExecuteCloudSyncEngineCheck();
+    if (editingRecordId) {
+        const rec = records.find(r => r.id === editingRecordId);
+        if (rec) {
+            rec.name = name;
+            rec.idCode = idCode;
+            rec.startTime = startVal;
+            rec.endTime = endVal;
+            rec.multiplier = multiplier;
+            rec.hoursWorked = computed.hoursWorked;
+            rec.hoursToPay = computed.hoursToPay;
+            rec.scale = scale;
+            rec.grossMoney = grossMoney;
         }
+    } else {
+        const newRecord = {
+            id: 'rec_' + Math.random().toString(36).substr(2, 9),
+            name,
+            idCode,
+            startTime: startVal,
+            endTime: endVal,
+            multiplier,
+            hoursWorked: computed.hoursWorked,
+            hoursToPay: computed.hoursToPay,
+            isPaid: false,
+            paidNotes: '',
+            scale,
+            grossMoney
+        };
+        records.push(newRecord);
+    }
+
+    saveStateToLocalStorage();
+    closeFormDisplay();
+    render();
+    await silentlyExecuteCloudSyncEngineCheck();
+}
 
         async function togglePaidStatus(id) {
             const rec = records.find(r => r.id === id);
@@ -1209,6 +1217,25 @@ scale,
         await silentlyExecuteCloudSyncEngineCheck();
     }
 }
+
+        function normalizeLegacyRecords() {
+    let modified = false;
+    records.forEach(r => {
+        if (!r.scale) {
+            r.scale = meta.defaultScale || 'A5'; // Fallback default scale
+            modified = true;
+        }
+        if (r.grossMoney === undefined && r.startTime && r.hoursToPay) {
+            const year = new Date(r.startTime).getFullYear();
+            r.grossMoney = calculateGrossPay(year, r.scale, r.hoursToPay);
+            modified = true;
+        }
+    });
+    if (modified) {
+        saveStateToLocalStorage();
+    }
+}
+        
 
         async function deleteRecord(id) {
             if (confirm("Are you sure you want to delete this record?")) {
@@ -1696,7 +1723,7 @@ function render() {
             }
         }
 
-        async function performCloudPullExtractionSequence(cloudDb, skipWarning = false) {
+async function performCloudPullExtractionSequence(cloudDb, skipWarning = false) {
             if (!cloudDb || !Array.isArray(cloudDb.records)) return;
 
             if (!skipWarning) {
@@ -1709,6 +1736,8 @@ function render() {
 
             records = cloudDb.records;
             meta = cloudDb.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: 'light' };
+
+            normalizeLegacyRecords(); // <-- Added here to normalize any legacy cloud records
 
             if (meta.theme) {
                 document.documentElement.setAttribute('data-theme', meta.theme);
@@ -1808,7 +1837,7 @@ function render() {
             URL.revokeObjectURL(url);
         }
 
-        function importFromFile(event) {
+function importFromFile(event) {
             const file = event.target.files && event.target.files[0];
             if (!file) return;
 
@@ -1821,6 +1850,8 @@ function render() {
                     records = parsed.records;
                     meta = parsed.meta || { defaultMultiplier: 'ΓΡΑΦΕΙΑΚΟ', lastUpdated: Date.now(), theme: 'light' };
                     meta.lastUpdated = Date.now();
+
+                    normalizeLegacyRecords(); // <-- Added here to normalize imported legacy records
 
                     if (meta.theme) {
                         document.documentElement.setAttribute('data-theme', meta.theme);
