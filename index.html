@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Overtime Tracker</title>
     <script src="config.js"></script>
+    <script src="rates.js"></script>
     <!-- Supabase JS SDK CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
@@ -189,6 +190,10 @@
             <option value="ΓΡΑΦΕΙΑΚΟ">ΓΡΑΦΕΙΑΚΟ</option>
             <option value="ΒΑΡΔΙΑ">ΒΑΡΔΙΑ</option>
         </select>
+<span>Κλίμακα:</span>
+    <select id="defaultScaleSelect" onchange="updateDefaultScale(this.value)">
+        <!-- Options will be populated dynamically or statically from the scale keys -->
+    </select>
     </div>
     <button class="btn-theme-toggle" onclick="toggleDisplayTheme()">Theme</button>
     <button class="btn-theme-toggle" onclick="promptPdfExportOptions()">📄 Export PDF</button>
@@ -259,6 +264,12 @@
                     <option value="ΒΑΡΔΙΑ">ΒΑΡΔΙΑ</option>
                 </select>
             </div>
+<div class="form-group full-width">
+    <label>Κλίμακα *</label>
+    <select id="recScale">
+        <!-- Populated via populateScaleDropdowns() -->
+    </select>
+</div>
         </div>
         <button class="btn-primary" id="formSubmitBtn" onclick="processFormSubmit()">Save Overtime Record</button>
         <button class="btn-cancel-form" onclick="closeFormDisplay()">Cancel</button>
@@ -470,6 +481,22 @@
             fetchSharedFileList(parentPath);
         }
 
+function populateScaleDropdowns() {
+    const scales = Object.keys(OVERTIME_RATES_BY_YEAR[2026] || {});
+    const selectors = [document.getElementById('defaultScaleSelect'), document.getElementById('recScale')];
+
+    selectors.forEach(select => {
+        if (!select) return;
+        const currentVal = select.value;
+        select.innerHTML = '';
+        scales.forEach(scale => {
+            const opt = new Option(scale, scale);
+            select.add(opt);
+        });
+        if (scales.includes(currentVal)) select.value = currentVal;
+    });
+}
+
         function updateSharedExplorerUIHeader() {
             const pathLabel = document.getElementById('sharedCurrentPathDisplay');
             const backBtn = document.getElementById('sharedBackBtn');
@@ -523,7 +550,7 @@
         }
 
         let records = [];
-        let meta = { defaultMultiplier: "ΓΡΑΦΕΙΑΚΟ", lastUpdated: 0, theme: "light", sortOrder: "desc", hideEmptyMonths: false };
+        let meta = { defaultMultiplier: "ΓΡΑΦΕΙΑΚΟ", defaultScale: "A5", lastUpdated: 0, theme: "light", sortOrder: "desc", hideEmptyMonths: false };
         let activeYear = new Date().getFullYear();
         let editingRecordId = null;
         let collapsedMonths = {};
@@ -649,6 +676,7 @@ function exportToPDF(filterMode = 'all') {
                             <div style="font-weight: 700; color: #111827;">
                                 ${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span style="font-weight: normal; color: #6b7280;">(${r.name})</span>` : ''}
                                 <span style="font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; margin-left: 6px;">${r.multiplier}</span>
+<span style="font-size: 10px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; border: 1px solid #cbd5e1; margin-left: 6px;">${r.scale || 'A8'}: €${(r.grossMoney || 0).toFixed(2)}</span>
                             </div>
                             <div style="font-size: 12px; color: #6b7280; margin-top: 2px;">
                                 ${startFormatted} &ndash; ${endFormatted}
@@ -1061,6 +1089,7 @@ function exportToPDF(filterMode = 'all') {
             document.getElementById('formSubmitBtn').innerText = "Save Overtime Record";
             document.getElementById('recordFormCard').style.display = 'block';
             document.getElementById('formTriggerBtn').style.display = 'none';
+document.getElementById('recScale').value = meta.defaultScale || "A5";
         }
 
         function openEditMode(id) {
@@ -1105,7 +1134,9 @@ function exportToPDF(filterMode = 'all') {
             const name = document.getElementById('recName').value.trim();
             const idCode = document.getElementById('recID').value.trim();
             const startDateVal = document.getElementById('recStartDate').value;
-
+const scale = document.getElementById('recScale').value;
+const recordYear = new Date(startVal).getFullYear();
+const grossMoney = calculateGrossPay(recordYear, scale, computed.hoursToPay);
             if (!startDateVal) {
                 alert("Please select Start Date.");
                 return;
@@ -1147,7 +1178,9 @@ function exportToPDF(filterMode = 'all') {
                     hoursWorked: computed.hoursWorked,
                     hoursToPay: computed.hoursToPay,
                     isPaid: false,
-                    paidNotes: ''
+                    paidNotes: '',
+scale,
+    grossMoney
                 };
                 records.push(newRecord);
             }
@@ -1273,6 +1306,7 @@ function render() {
                         <div class="record-top">
                             <div class="record-title">${r.idCode ? `Α/Α: ${r.idCode}` : 'No Α/Α'} ${r.name ? `<span class="record-id">(${r.name})</span>` : ''}</div>
                             <span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.multiplier}</span>
+<span style="font-size:11px; font-weight:bold; background:var(--group-header-bg); padding:2px 6px; border-radius:4px;">${r.scale || 'A8'}: €${(r.grossMoney || 0).toFixed(2)}</span>
                         </div>
                         <div class="record-details">
                             <div>Start: <strong>${startFormatted}</strong></div>
@@ -1820,6 +1854,6 @@ async function updateHideEmptyMonths(val) {
 }
         
     </script>
-<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v7</div>
+<div style="position:fixed;bottom:8px;left:0;width:100%;text-align:center;font-size:10px;font-weight:600;color:#94a3b8;letter-spacing:.4px;pointer-events:none;">Overtime Tracker • v8</div>
 </body>
 </html>
