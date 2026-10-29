@@ -1211,7 +1211,7 @@ async function processFormSubmit() {
     }
 
     const existingRecord = editingRecordId ? records.find(r => r.id === editingRecordId) : null;
-    const ignoreTimeChange = existingRecord ? existingRecord.ignoreTimeChange !== false : true;
+    const ignoreTimeChange = existingRecord ? existingRecord.ignoreTimeChange !== false : false;
     const computed = calculateOvertime(startVal, endVal, multiplier, ignoreTimeChange);
     const recordYear = new Date(startVal).getFullYear();
     const grossMoney = calculateGrossPay(recordYear, scale, computed.hoursToPay);
@@ -1241,7 +1241,7 @@ async function processFormSubmit() {
             hoursWorked: computed.hoursWorked,
             hoursToPay: computed.hoursToPay,
             isPaid: false,
-            ignoreTimeChange: true,
+            ignoreTimeChange: false,
             paidNotes: '',
             scale,
             grossMoney
@@ -1409,9 +1409,9 @@ function render() {
                                     <span>Paid</span>
                                 </label>
                                 ${getTimeChangeInfo(r.startTime, r.endTime).fallsIntoChange ? `
-                                    <label class="checkbox-label" style="color:var(--danger); gap:5px; white-space:nowrap;" title="On: calculate as if the clock had not changed. Off: use actual elapsed time.">
-                                        <span>Falls into time change!</span>
-                                        <input type="checkbox" style="appearance:radio; width:16px; height:16px;" ${r.ignoreTimeChange !== false ? 'checked' : ''} onchange="toggleTimeChangeCalculation('${r.id}', this.checked)">
+                                    <label class="checkbox-label" style="color:var(--danger); gap:5px; white-space:nowrap;" title="Checked: use actual elapsed time. Unchecked: calculate as if the clock had not changed.">
+                                        <span>Counts time change?</span>
+                                        <input type="checkbox" style="appearance:radio; width:16px; height:16px;" ${r.ignoreTimeChange === false ? 'checked' : ''} onchange="toggleTimeChangeCalculation('${r.id}', !this.checked)">
                                     </label>` : ''}
                             </div>
                             <div class="action-btns">
